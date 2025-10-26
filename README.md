@@ -1,12 +1,16 @@
 # Talento — PMV Evaluador (M9)
-Demo local con dos apps Flask: `play-ui` (evaluador) y `panel-ui` (panel).
+
+Demo local con dos apps Flask:
+- `play-ui` → evaluador (envía respuestas simuladas a `data/sessions/*.jsonl`)
+- `panel-ui` → panel orientador (lee KPIs desde SQLite)
+
+## Requisitos
+- Python 3.14 (o 3.11+ probado)  
+- macOS/Linux con `make`, `sqlite3`, `curl`, `jq` (opcional para pretty JSON)
 
 ## Arranque rápido
+```bash
 make init
-BACKEND_DB="$PWD/backend/talento_READY_2025-09-14.db" \
-  make dev-up
-# Evaluador: http://127.0.0.1:5101  (o 5001)
-# Panel:     http://127.0.0.1:5102  (o 5002)
-
-## Ingesta desde el panel
-curl -s -X POST "http://127.0.0.1:<panel_port>/admin/ingest?token=pmv-local" | jq .
+BACKEND_DB="$PWD/backend/talento_READY_2025-09-14.db" make dev-up
+# Evaluador: http://127.0.0.1:5001  (o 5101 si cambias el puerto)
+# Panel:     http://127.0.0.1:5002  (o 5102)
