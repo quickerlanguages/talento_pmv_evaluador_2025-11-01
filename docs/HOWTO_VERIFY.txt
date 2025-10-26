@@ -1,0 +1,3 @@
+Verificación del paquete PMV
+1) shasum -a 256 <archivo>.zip  (comparar con .sha256)
+2) gpg --verify <archivo>.zip.asc <archivo>.zip  (firma "Daniel Hurtado ...")

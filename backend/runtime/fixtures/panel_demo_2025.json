@@ -1,0 +1,80 @@
+[
+  {
+    "model": "runtime.tlt_respuesta",
+    "pk": 1,
+    "fields": {
+      "sesion_id": 10,
+      "ccp_code": "VPM",
+      "ejer_code": "VPM_CFANT_S",
+      "item_id": "demo_vpm_001",
+      "correcta": 1,
+      "tr_ms": 480,
+      "created_at": "2025-10-16T09:00:00Z"
+    }
+  },
+  {
+    "model": "runtime.tlt_respuesta",
+    "pk": 2,
+    "fields": {
+      "sesion_id": 10,
+      "ccp_code": "VPM",
+      "ejer_code": "VPM_CFANT_S",
+      "item_id": "demo_vpm_002",
+      "correcta": 0,
+      "tr_ms": 620,
+      "created_at": "2025-10-16T09:00:30Z"
+    }
+  },
+  {
+    "model": "runtime.tlt_respuesta",
+    "pk": 3,
+    "fields": {
+      "sesion_id": 11,
+      "ccp_code": "MCP",
+      "ejer_code": "MCP_SPAN_B",
+      "item_id": "demo_mcp_001",
+      "correcta": 1,
+      "tr_ms": 850,
+      "created_at": "2025-10-17T10:00:00Z"
+    }
+  },
+  {
+    "model": "runtime.tlt_respuesta",
+    "pk": 4,
+    "fields": {
+      "sesion_id": 11,
+      "ccp_code": "MCP",
+      "ejer_code": "MCP_SPAN_B",
+      "item_id": "demo_mcp_002",
+      "correcta": 1,
+      "tr_ms": 920,
+      "created_at": "2025-10-17T10:00:40Z"
+    }
+  },
+  {
+    "model": "runtime.tlt_respuesta",
+    "pk": 5,
+    "fields": {
+      "sesion_id": 11,
+      "ccp_code": "MDT",
+      "ejer_code": "MDT_WM_S",
+      "item_id": "demo_mdt_001",
+      "correcta": 0,
+      "tr_ms": 1150,
+      "created_at": "2025-10-17T10:01:00Z"
+    }
+  },
+  {
+    "model": "runtime.tlt_respuesta",
+    "pk": 6,
+    "fields": {
+      "sesion_id": 11,
+      "ccp_code": "INH",
+      "ejer_code": "INH_GO_NOGO",
+      "item_id": "demo_inh_001",
+      "correcta": 1,
+      "tr_ms": 530,
+      "created_at": "2025-10-17T10:02:00Z"
+    }
+  }
+]

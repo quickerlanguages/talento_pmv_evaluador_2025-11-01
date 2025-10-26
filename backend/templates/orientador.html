@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Panel de Orientador – Progreso</title>
+  <style>
+    :root{ --bg:#0b0b0f;--fg:#e8e8ee;--card:#14141c;--border:#232334;--muted:#a0a0b8; }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;margin:20px;background:var(--bg);color:var(--fg)}
+    .wrap{max-width:1180px;margin:auto}
+    h1{font-size:1.6rem;margin:0 0 1rem}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+    .kpi{flex:1;min-width:180px;text-align:center}
+    .kpi .v{font-size:1.6rem;font-weight:700}
+    .kpi .t{opacity:.8}
+    select,button,input{background:var(--card);border:1px solid #2a2a3a;color:var(--fg);border-radius:10px;padding:8px 10px}
+    input[type="date"],input[type="number"]{min-width:160px}
+    button{cursor:pointer} button[disabled]{opacity:.6;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:.95rem}
+    th{opacity:.9;user-select:none;cursor:pointer}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d1d2b;border:1px solid #2a2a3a;font-size:.8rem}
+    .tools{display:flex;gap:8px;flex-wrap:wrap}
+    .muted{opacity:.7}
+    .footer{opacity:.6;font-size:.85rem;margin-top:20px}
+    .spacer{height:8px}
+    .right{margin-left:auto}
+    .loading{font-size:.95rem;opacity:.8}
+    .empty{opacity:.8;font-style:italic}
+    .toast{position:fixed;right:16px;bottom:16px;background:#1f1f2a;border:1px solid var(--border);padding:10px 12px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    .subtle{font-size:.85rem;opacity:.8}
+    .tag{padding:2px 6px;border:1px solid var(--border);border-radius:8px;margin-left:6px;opacity:.85}
+    .sep{height:6px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Panel de Orientador</h1>
+
+  <!-- FILA 1: token + fechas + sesión + acciones -->
+  <div class="row">
+    <div class="card">
+      <label for="token" class="muted">Token (opcional si usas login):</label><br>
+      <input id="token" type="password" placeholder="X-Panel-Token (si está configurado)"/>
+    </div>
+
+    <div class="card">
+      <label class="muted" for="dateFrom">Desde</label><br>
+      <input id="dateFrom" type="date"/>
+    </div>
+    <div class="card">
+      <label class="muted" for="dateTo">Hasta</label><br>
+      <input id="dateTo" type="date"/>
+    </div>
+    <div class="card">
+      <label class="muted">Sesiones</label><br>
+      <div class="tools">
+        <button id="btnApplyDates">Aplicar</button>
+        <button id="btnResetDates" class="subtle">Reset</button>
+        <button id="btnRefresh">Refrescar</button>
+      </div>
+      <div class="subtle" id="datesInfo"></div>
+    </div>
+
+    <div class="card">
+      <label for="sesionSel" class="muted">Sesión</label><br>
+      <select id="sesionSel"></select>
+    </div>
+
+    <div class="card">
+      <label class="muted">Acciones</label><br>
+      <div class="tools">
+        <button id="btnReprocesar">Reprocesar sesión</button>
+        <button id="btnExportCSV">Exportar CSV</button>
+        <button id="btnExportJSON">Exportar JSON</button>
+        <button id="btnExportFiltered">CSV (filtro)</button>
+        <button id="btnExportCCP">CSV (CCP servidor)</button>
+        <button id="btnExportEjer">CSV (Ejer servidor)</button>
+      </div>
+      <div class="subtle">CSV (filtro) descarga lo que ves en “by_ejer”.</div>
+    </div>
+
+    <div class="right loading" id="loadingGlobal" style="display:none">Cargando…</div>
+  </div>
+
+  <!-- FILA 2: KPIs + Últimos N -->
+  <div class="row" style="margin-top:12px">
+    <div class="card kpi"><div class="t"># intentos</div><div id="kpiN" class="v">–</div></div>
+    <div class="card kpi"><div class="t">% acierto</div><div id="kpiAcc" class="v">–</div></div>
+    <div class="card kpi"><div class="t">TR promedio (ms)</div><div id="kpiTR" class="v">–</div></div>
+    <div class="card">
+      <label class="muted" for="lastN">Últimos N (detalle)</label><br>
+      <input id="lastN" type="number" min="5" max="200" step="5" value="20" style="width:140px"/>
+      <div class="subtle">Se aplica en <strong>servidor</strong> (API <code>last_n</code>).</div>
+    </div>
+  </div>
+
+  <!-- RESUMEN by_ccp -->
+  <div class="card" style="margin-top:12px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <strong>Resumen por CCP (by_ccp)</strong>
+      <div class="muted">Clic en cabeceras para ordenar</div>
+    </div>
+    <table id="tblCCP">
+      <thead>
+        <tr>
+          <th data-sort="ccp_code">CCP</th>
+          <th data-sort="n">#</th>
+          <th data-sort="acierto_pct">% acierto</th>
+          <th data-sort="tr_ms_avg">TR ms</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="emptyCCP" class="empty" style="display:none">Sin datos de CCP.</div>
+  </div>
+
+  <!-- FILTROS CLIENTE -->
+  <div class="card" style="margin-top:12px">
+    <div class="row" style="align-items:center">
+      <strong>Filtros (cliente)</strong>
+      <div class="spacer"></div>
+      <div>
+        <label class="muted" for="ccpSel">CCP</label><br>
+        <select id="ccpSel"><option value="">Todos</option></select>
+      </div>
+      <div>
+        <label class="muted" for="ejerSel">Ejercicio</label><br>
+        <select id="ejerSel"><option value="">Todos</option></select>
+      </div>
+      <div class="right muted" id="filterInfo"></div>
+    </div>
+  </div>
+
+  <!-- TABLA by_ejer -->
+  <div class="card" style="margin-top:12px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div><strong>Por ejercicio (by_ejer)</strong></div>
+      <div class="muted">Clic en cabeceras para ordenar</div>
+    </div>
+    <table id="tblEjer">
+      <thead>
+        <tr>
+          <th data-sort="ccp_code">CCP</th>
+          <th data-sort="ejer_code">Ejercicio</th>
+          <th data-sort="n">#</th>
+          <th data-sort="acierto_pct">% acierto</th>
+          <th data-sort="tr_ms_avg">TR ms</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="emptyEjer" class="empty" style="display:none">No hay datos para los filtros actuales.</div>
+  </div>
+
+  <!-- DETALLE últimos N -->
+  <div class="card" style="margin-top:12px">
+    <strong>Detalle (últimos N ítems)</strong>
+    <div class="sep"></div>
+    <table id="tblUltimos">
+      <thead>
+        <tr>
+          <th data-sort="created_at">Fecha</th>
+          <th data-sort="ccp_code">CCP</th>
+          <th data-sort="ejer_code">Ejercicio</th>
+          <th data-sort="correcta">Correcta</th>
+          <th data-sort="tr_ms">TR ms</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="emptyUlt" class="empty" style="display:none">Sin detalle disponible.</div>
+  </div>
+
+  <div class="footer">
+    Lee exclusivamente de <span class="pill">tlt_respuesta</span>. Reprocesar llama a <span class="pill">POST /api/backfill</span>.
+    <span class="tag">Login o token</span><span class="tag">CSRF controlado</span><span class="tag">Persistencia local</span>
+  </div>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+
+// Prefill del token desde ?token=... y persistencia en localStorage
+(function(){
+  try{
+    const qs = new URLSearchParams(location.search);
+    const t = qs.get("token");
+    if (t) {
+      const el = $("token"); if (el) el.value = t;
+      const raw = localStorage.getItem("orientador_prefs") || "{}";
+      const prefs = JSON.parse(raw);
+      prefs.token = t;
+      localStorage.setItem("orientador_prefs", JSON.stringify(prefs));
+    }
+  }catch{}
+})();
+
+const api = {
+  sessions: "/api/sessions",
+  progress: "/api/progress",
+  export: (sid, fmt) => fmt === "csv" ? `/api/export/session/${sid}` : `/api/progress?sesion_id=${sid}&format=json`,
+  backfill: "/api/backfill"
+};
+
+let state = {
+  lastProgress:null,
+  lastSesionId:null,
+  lastN: 20,
+  dates: { from:"", to:"" },
+  sort: { ejer:{key:"",dir:1}, ccp:{key:"",dir:1}, ult:{key:"",dir:1} }
+};
+
+function showLoading(on){ $("loadingGlobal").style.display = on ? "" : "none"; }
+function toast(msg, ms=2500){ const t=$("toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>{t.style.display="none"}, ms); }
+
+/* -------- helpers -------- */
+function headers() {
+  const h = {"Accept":"application/json"};
+  const t = $("token").value.trim();
+  if(t) h["X-Panel-Token"]=t;
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  if(m) h["X-CSRFToken"]=m[1];
+  return h;
+}
+function buildSessionsUrl(){
+  const p = new URLSearchParams();
+  if(state.dates.from) p.set("date_from", state.dates.from);
+  if(state.dates.to)   p.set("date_to",   state.dates.to);
+  const qs = p.toString();
+  return qs ? `${api.sessions}?${qs}` : api.sessions;
+}
+async function fetchJSON(url){
+  const r = await fetch(url,{headers:headers()});
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+async function postJSON(url, body){
+  const r = await fetch(url,{ method:"POST", headers:{...headers(),"Content-Type":"application/json"}, body: JSON.stringify(body||{}) });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+function fmtPct(x){ if(x==null || isNaN(x)) return "–"; return (Math.round(x*10)/10).toFixed(1)+"%"; }
+function safe(n, d){ return (n==null? d:n); }
+function round(n){ return n==null||isNaN(n) ? "–" : Math.round(n); }
+
+/* -------- persistencia local -------- */
+function savePrefs(){
+  const prefs = {
+    token:$("token").value || "",
+    dates: state.dates,
+    lastN: state.lastN,
+    ccp:$("ccpSel").value||"",
+    ejer:$("ejerSel").value||"",
+    sesion:$("sesionSel").value||""
+  };
+  localStorage.setItem("orientador_prefs", JSON.stringify(prefs));
+}
+function loadPrefs(){
+  try{
+    const raw = localStorage.getItem("orientador_prefs");
+    if(!raw) return;
+    const p = JSON.parse(raw);
+    $("token").value = p.token||"";
+    state.dates = p.dates||{from:"",to:""};
+    $("dateFrom").value = state.dates.from||"";
+    $("dateTo").value   = state.dates.to||"";
+    state.lastN = p.lastN||20;
+    $("lastN").value = state.lastN;
+    return p;
+  }catch{ return null; }
+}
+
+/* -------- KPIs -------- */
+function computeOverallFromRows(rows){
+  if(!rows || !rows.length) return { n:0, acierto_pct:null, tr_ms_avg:null };
+  let N=0, sumCorrect=0, sumTR=0;
+  for(const r of rows){
+    const n = Number(r.n)||0, accPct = Number(r.acierto_pct), tr = Number(r.tr_ms_avg);
+    N += n; if(!isNaN(accPct)) sumCorrect += n*(accPct/100); if(!isNaN(tr)) sumTR += n*tr;
+  }
+  return { n:N, acierto_pct: N? (sumCorrect/N*100):null, tr_ms_avg: N? (sumTR/N):null };
+}
+function fillKPIs(payload, filter={ccp:"",ejer:""}){
+  if(filter.ccp || filter.ejer){
+    const rows = (payload.by_ejer||[]).filter(r=>(!filter.ccp || r.ccp_code===filter.ccp) && (!filter.ejer || r.ejer_code===filter.ejer));
+    const o = computeOverallFromRows(rows);
+    $("kpiN").textContent = o.n||"–";
+    $("kpiAcc").textContent = o.acierto_pct==null?"–":fmtPct(o.acierto_pct);
+    $("kpiTR").textContent = round(o.tr_ms_avg);
+    $("filterInfo").textContent = `KPIs filtrados: ${filter.ccp||"Todos"} ${filter.ejer?("· "+filter.ejer):""}`;
+    return;
+  }
+  const agg = computeOverallFromRows(payload.by_ccp || payload.kpis || []);
+  $("kpiN").textContent  = agg.n||"–";
+  $("kpiAcc").textContent= agg.acierto_pct==null?"–":fmtPct(agg.acierto_pct);
+  $("kpiTR").textContent = round(agg.tr_ms_avg);
+  $("filterInfo").textContent = "KPIs globales (sin filtro)";
+}
+
+/* -------- tablas + ordenación -------- */
+function sortRows(rows, key, dir){
+  if(!key) return rows;
+  const arr=[...rows];
+  arr.sort((a,b)=>{
+    const va=a[key], vb=b[key];
+    const na = typeof va==="number"?va:Number(va); const nb = typeof vb==="number"?vb:Number(vb);
+    const isNum = !Number.isNaN(na) && !Number.isNaN(nb);
+    if(isNum) return (na-nb)*dir;
+    return (String(va||"").localeCompare(String(vb||"")))*dir;
+  });
+  return arr;
+}
+function bindSortableHeaders(tableId, group){
+  const thead = document.querySelector(`#${tableId} thead`);
+  if(!thead) return;
+  thead.querySelectorAll("th[data-sort]").forEach(th=>{
+    th.addEventListener("click", ()=>{
+      const key = th.getAttribute("data-sort");
+      const s = state.sort[group];
+      if(s.key===key) s.dir = -s.dir; else { s.key=key; s.dir=1; }
+      applyFilters();
+    });
+  });
+}
+
+function fillByCCP(payload){
+  const tb = $("tblCCP").querySelector("tbody");
+  tb.innerHTML = "";
+  const rowsRaw = payload.by_ccp || payload.kpis || [];
+  const s = state.sort.ccp;
+  const rows = sortRows(rowsRaw, s.key, s.dir);
+  $("emptyCCP").style.display = rows.length? "none":"";
+  rows.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.ccp_code||""}</td>
+      <td>${r.n??""}</td>
+      <td>${r.acierto_pct!=null?fmtPct(r.acierto_pct):"–"}</td>
+      <td>${r.tr_ms_avg!=null?round(r.tr_ms_avg):"–"}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function fillByEjer(payload, filter={ccp:"",ejer:""}){
+  const tb = $("tblEjer").querySelector("tbody");
+  tb.innerHTML = "";
+  let rows = (payload.by_ejer || []).filter(r=>(!filter.ccp || r.ccp_code===filter.ccp) && (!filter.ejer || r.ejer_code===filter.ejer));
+  const s = state.sort.ejer;
+  rows = sortRows(rows, s.key, s.dir);
+  $("emptyEjer").style.display = rows.length? "none":"";
+  rows.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.ccp_code||""}</td>
+      <td>${r.ejer_code||""}</td>
+      <td>${r.n||""}</td>
+      <td>${r.acierto_pct!=null?fmtPct(r.acierto_pct):"–"}</td>
+      <td>${r.tr_ms_avg!=null?round(r.tr_ms_avg):"–"}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function fillUltimos(payload){
+  const tb = $("tblUltimos").querySelector("tbody");
+  tb.innerHTML="";
+  const s = state.sort.ult;
+  let rows = payload.last_items || payload.ultimos || [];
+  if(rows.length && state.lastN) rows = rows.slice(0, Number(state.lastN)); // seguridad si servidor devolviera más
+  rows = sortRows(rows, s.key, s.dir);
+  $("emptyUlt").style.display = rows.length? "none":"";
+  rows.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.created_at||""}</td>
+      <td>${r.ccp_code||""}</td>
+      <td>${r.ejer_code||""}</td>
+      <td>${r.correcta!=null?(r.correcta? "✔️":"❌"):""}</td>
+      <td>${r.tr_ms!=null?r.tr_ms:""}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* -------- filtros cliente -------- */
+function buildFilterOptions(payload){
+  const ccps = new Set(), ejers = new Set();
+  (payload.by_ejer||[]).forEach(r=>{ if(r.ccp_code) ccps.add(r.ccp_code); if(r.ejer_code) ejers.add(r.ejer_code); });
+  const ccpSel = $("ccpSel"), ejerSel= $("ejerSel");
+  const ccpPrev = ccpSel.value, ejerPrev = ejerSel.value;
+  ccpSel.innerHTML = `<option value="">Todos</option>` + [...ccps].map(v=>`<option value="${v}">${v}</option>`).join("");
+  ejerSel.innerHTML= `<option value="">Todos</option>` + [...ejers].map(v=>`<option value="${v}">${v}</option>`).join("");
+  if(ccpPrev && ccps.has(ccpPrev)) ccpSel.value = ccpPrev;
+  if(ejerPrev && ejers.has(ejerPrev)) ejerSel.value = ejerPrev;
+}
+
+/* -------- ciclo de carga -------- */
+function currentFilter(){ return { ccp: $("ccpSel").value || "", ejer: $("ejerSel").value || "" }; }
+
+function applyFilters(){
+  const p = state.lastProgress;
+  const f = currentFilter();
+  savePrefs();
+  if(!p){
+    $("kpiN").textContent="–"; $("kpiAcc").textContent="–"; $("kpiTR").textContent="–";
+    ["tblCCP","tblEjer","tblUltimos"].forEach(id=>document.querySelector(`#${id} tbody`).innerHTML="");
+    $("emptyCCP").style.display=""; $("emptyEjer").style.display=""; $("emptyUlt").style.display="";
+    $("filterInfo").textContent = "";
+    return;
+  }
+  fillKPIs(p, f);
+  fillByCCP(p);
+  fillByEjer(p, f);
+  fillUltimos(p);
+}
+
+async function loadSessions(){
+  showLoading(true);
+  try{
+    const data = await fetchJSON(buildSessionsUrl());
+    const sel = $("sesionSel"); sel.innerHTML = "";
+    (data.sessions||[]).forEach(s=>{
+      const opt = document.createElement("option");
+      opt.value = s.sesion_id;
+      opt.textContent = `#${s.sesion_id} • ${s.n_respuestas} resp • ${s.fecha_ultima??""}`;
+      sel.appendChild(opt);
+    });
+
+    // intenta restaurar sesión previa
+    const prefs = JSON.parse(localStorage.getItem("orientador_prefs")||"{}");
+    if(prefs && prefs.sesion && [...sel.options].some(o=>o.value==prefs.sesion)){ sel.value = prefs.sesion; }
+
+    if(sel.options.length>0){
+      await loadProgress(sel.value);
+    }else{
+      state.lastProgress=null; state.lastSesionId=null; applyFilters();
+    }
+    const info = [];
+    if(state.dates.from) info.push(`desde ${state.dates.from}`);
+    if(state.dates.to)   info.push(`hasta ${state.dates.to}`);
+    $("datesInfo").textContent = info.length? info.join(" · ") : "sin filtro de fechas";
+  }catch(e){ toast("Error cargando sesiones: "+e.message); }
+  finally{ showLoading(false); }
+}
+
+function buildProgressUrl(sesion_id){
+  const p = new URLSearchParams({ sesion_id: String(sesion_id), last_n: String(state.lastN||20) });
+  const f = currentFilter();
+  if (f.ccp)  p.set("ccp", f.ccp);
+  if (f.ejer) p.set("ejer", f.ejer);
+  if (state.dates.from) p.set("date_from", state.dates.from);
+  if (state.dates.to)   p.set("date_to",   state.dates.to);
+  return `${api.progress}?${p.toString()}`;
+}
+
+async function loadProgress(sesion_id){
+  showLoading(true);
+  try{
+    const url = buildProgressUrl(sesion_id);
+    const data = await fetchJSON(url);
+    state.lastProgress = data;
+    state.lastSesionId = sesion_id;
+    buildFilterOptions(data);
+    applyFilters();
+  }catch(e){ toast("Error cargando progreso: "+e.message); }
+  finally{ showLoading(false); }
+}
+
+/* -------- export CSV filtrado (cliente) -------- */
+function exportFilteredCSV(){
+  if(!state.lastProgress){ toast("No hay datos para exportar"); return; }
+  const f = currentFilter();
+  const rows = (state.lastProgress.by_ejer||[]).filter(r=>
+    (!f.ccp || r.ccp_code===f.ccp) && (!f.ejer || r.ejer_code===f.ejer)
+  );
+  const headers = ["ccp_code","ejer_code","n","acierto_pct","tr_ms_avg"];
+  const lines = [headers.join(",")].concat(rows.map(r=>headers.map(h=>{
+    const v = r[h]; return (v==null?"":String(v).replace(/"/g,'""')); }).map(x=>/[,"]/.test(x)?`"${x}"`:x).join(",")
+  ));
+  const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `by_ejer_sesion_${state.lastSesionId || "NA"}_filtro.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* -------- export CSV servidor (by_ccp / by_ejer con filtros) -------- */
+function buildCommonQsForExport(){
+  const qs = new URLSearchParams();
+  const t = $("token").value.trim();
+  if (t) qs.set("token", t);
+  const df = $("dateFrom")?.value || "";
+  const dt = $("dateTo")?.value   || "";
+  if (df) qs.set("date_from", df);
+  if (dt) qs.set("date_to",   dt);
+  return qs;
+}
+
+/* -------- eventos -------- */
+$("sesionSel").addEventListener("change", async (e)=>{ const sid=e.target.value; savePrefs(); if(sid) await loadProgress(sid); });
+$("ccpSel").addEventListener("change", async ()=>{
+  savePrefs();
+  const sid = $("sesionSel").value;
+  if (sid) await loadProgress(sid); // servidor con ?ccp=
+});
+$("ejerSel").addEventListener("change", async ()=>{
+  savePrefs();
+  const sid = $("sesionSel").value;
+  if (sid) await loadProgress(sid); // servidor con ?ejer=
+});
+$("lastN").addEventListener("change", async ()=>{
+  const n=Number($("lastN").value);
+  state.lastN=(!isNaN(n)&&n>0)?n:20;
+  savePrefs();
+  const sid = $("sesionSel").value;
+  if(sid) await loadProgress(sid); // pedir al servidor con el nuevo last_n
+});
+
+$("btnReprocesar").addEventListener("click", async ()=>{
+  const sid = $("sesionSel").value; if(!sid) return;
+  try{
+    showLoading(true);
+    await postJSON(api.backfill, { sesion_id: Number(sid) });
+    await loadProgress(sid);
+    toast("Reprocesado OK.");
+  }catch(e){
+    if(String(e).includes("HTTP 403")){
+      const t = $("token").value.trim();
+      if(t){
+        try{
+          const r = await fetch(`${api.backfill}?token=${encodeURIComponent(t)}`, {
+            method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sesion_id:Number(sid)})
+          });
+          if(r.ok){ await loadProgress(sid); toast("Reprocesado OK (token)"); showLoading(false); return; }
+        }catch{}
+      }
+      toast("403 CSRF: en local marca @csrf_exempt en /api/backfill o entra con login.", 5000);
+    } else {
+      toast("Error al reprocesar: "+e.message, 4000);
+    }
+  } finally { showLoading(false); }
+});
+
+$("btnExportCSV").addEventListener("click", ()=>{
+  const sid = $("sesionSel").value; if(!sid) return;
+  const t = $("token").value.trim();
+  const url = api.export(sid,"csv") + (t ? `?token=${encodeURIComponent(t)}` : "");
+  window.open(url, "_blank");
+});
+$("btnExportJSON").addEventListener("click", ()=>{
+  const sid = $("sesionSel").value; if(!sid) return;
+  const t = $("token").value.trim();
+  const url = api.export(sid,"json") + (t ? `&token=${encodeURIComponent(t)}` : "");
+  window.open(url, "_blank");
+});
+$("btnExportFiltered").addEventListener("click", exportFilteredCSV);
+
+$("btnExportCCP").addEventListener("click", ()=>{
+  const sid = $("sesionSel").value; if(!sid) return;
+  const qs = buildCommonQsForExport();
+  const ccp = $("ccpSel")?.value || "";
+  if (ccp) qs.set("ccp", ccp);
+  const url = `/api/export/session/${encodeURIComponent(sid)}/by_ccp?` + qs.toString();
+  window.open(url, "_blank");
+});
+
+$("btnExportEjer").addEventListener("click", ()=>{
+  const sid = $("sesionSel").value; if(!sid) return;
+  const qs = buildCommonQsForExport();
+  const ccp  = $("ccpSel")?.value || "";
+  const ejer = $("ejerSel")?.value || "";
+  if (ccp)  qs.set("ccp", ccp);
+  if (ejer) qs.set("ejer", ejer);
+  const url = `/api/export/session/${encodeURIComponent(sid)}/by_ejer?` + qs.toString();
+  window.open(url, "_blank");
+});
+
+$("btnApplyDates").addEventListener("click", async ()=>{
+  state.dates.from = $("dateFrom").value || "";
+  state.dates.to   = $("dateTo").value   || "";
+  savePrefs(); await loadSessions();
+});
+$("btnResetDates").addEventListener("click", async ()=>{
+  $("dateFrom").value = ""; $("dateTo").value = "";
+  state.dates = {from:"", to:""}; savePrefs(); await loadSessions();
+});
+$("btnRefresh").addEventListener("click", async ()=>{
+  const sid = $("sesionSel").value; if(sid) await loadProgress(sid);
+});
+
+/* -------- init -------- */
+bindSortableHeaders("tblEjer","ejer");
+bindSortableHeaders("tblCCP","ccp");
+bindSortableHeaders("tblUltimos","ult");
+const prefs = loadPrefs(); // precarga token/fechas/lastN
+loadSessions().then(()=>{
+  if(prefs){
+    if(prefs.ccp) { const el=$("ccpSel"); if(el && [...el.options].some(o=>o.value===prefs.ccp)) el.value=prefs.ccp; }
+    if(prefs.ejer){ const el=$("ejerSel"); if(el && [...el.options].some(o=>o.value===prefs.ejer)) el.value=prefs.ejer; }
+    applyFilters();
+  }
+}).catch(e=>toast("Fallo inicial: "+e.message));
+</script>
+</body>
+</html>

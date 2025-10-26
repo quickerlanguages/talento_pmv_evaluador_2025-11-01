@@ -1,0 +1,11 @@
+Instalación (offline)
+---------------------
+1) Instala Python 3.9+
+2) En este directorio:
+   - macOS/Linux:
+     $ make init
+   - Windows (PowerShell):
+     > py -m venv .venv
+     > .venv\Scripts\pip install -U pip wheel
+     > .venv\Scripts\pip install -r requirements.txt
+3) Copia el backend validado (M8) a ./backend/

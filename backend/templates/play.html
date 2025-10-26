@@ -1,0 +1,155 @@
+{% extends "talento_core/base.html" %}
+{% block title %}Play{% endblock %}
+{% block content %}
+<h1>M4 · Demo jugable VPM</h1>
+
+<div id="bar" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+  <span>sesión:
+    <input id="sesion_id" type="number" min="1" value="{{ request.GET.sesion_id|default:'1' }}" style="width:80px">
+  </span>
+  <a id="linkProgress" href="/progress/?sesion_id={{ request.GET.sesion_id|default:'1' }}" target="_blank" rel="noopener">
+    Ver progreso →
+  </a>
+  <span>ccp: <strong id="ccp">VPM</strong></span>
+  <span>ejer: <strong id="ejer">—</strong></span>
+  <span>item: <strong id="item">—</strong></span>
+  <span id="status" style="margin-left:auto"></span>
+</div>
+
+<div id="stage" style="display:flex;align-items:center;justify-content:center;border:1px solid #ccc;height:260px;border-radius:12px;margin-bottom:12px">
+  Pulsa “Siguiente” para comenzar
+</div>
+
+<div id="controls" style="display:flex;gap:8px">
+  <button id="btnA" style="display:none">A</button>
+  <button id="btnB" style="display:none">B</button>
+  <button id="btnClick" style="display:none">¡Clic!</button>
+  <button id="btnNext">Siguiente</button>
+</div>
+
+<script>
+(function(){
+  // ===== Helpers =====
+  function getCookie(name){
+    const v = document.cookie.split('; ').find(r=>r.startsWith(name+'='));
+    return v ? decodeURIComponent(v.split('=')[1]) : null;
+  }
+  function sid(){ return document.getElementById("sesion_id").value || "1"; }
+  function setStatus(msg, ok=false){
+    const el=document.getElementById("status");
+    el.textContent=msg; el.style.color = ok ? "green" : "inherit";
+  }
+  function syncProgressHref(){
+    document.getElementById("linkProgress").href = "/progress/?sesion_id="+encodeURIComponent(sid());
+  }
+  document.getElementById("sesion_id").addEventListener("input", syncProgressHref);
+  syncProgressHref();
+
+  // ===== Estado =====
+  let current=null, t0=0, to=null;
+
+  // ===== Mock de “siguiente ítem” en cliente =====
+  function mockNext(){
+    // alterna entre dos tipos de prueba
+    const isReaction = Math.random() < 0.5;
+    if (isReaction){
+      return {
+        kind: "reaction",
+        ccp_code: "VPM",
+        ejer_code: "VPM_REACT",
+        item_id: Math.floor(Math.random()*1000),
+        stim: { radius: 24 + Math.floor(Math.random()*20), color: "#4f46e5" },
+        timeout_ms: 4000
+      };
+    } else {
+      return {
+        kind: "decideAB",
+        ccp_code: "VPM",
+        ejer_code: "VPM_AB",
+        item_id: Math.floor(Math.random()*1000),
+        stim: { prompt: "¿A o B?", A: "↑", B: "↓" },
+        correcta: Math.random() < 0.5 ? "A" : "B",
+        timeout_ms: 6000
+      };
+    }
+  }
+
+  async function nextItem(){
+    clearStage();
+    setStatus("Cargando ítem…");
+    // Si en el futuro creas la API real, cambia esta línea por:
+    // const r = await fetch("/api/next-vpm-item?sesion_id="+encodeURIComponent(sid()));
+    // current = await r.json();
+    current = mockNext();
+    render(current);
+    t0 = performance.now();
+    setStatus("Listo.");
+    to = setTimeout(()=> autoSave("TIMEOUT", 0), current.timeout_ms);
+  }
+
+  function clearStage(){
+    ["btnA","btnB","btnClick"].forEach(id=>document.getElementById(id).style.display="none");
+    document.getElementById("stage").innerHTML = "";
+    if (to){ clearTimeout(to); to=null; }
+  }
+
+  function render(item){
+    document.getElementById("ccp").textContent=item.ccp_code;
+    document.getElementById("ejer").textContent=item.ejer_code;
+    document.getElementById("item").textContent=item.item_id;
+
+    const st = document.getElementById("stage");
+    if (item.kind==="reaction"){
+      st.textContent="Espera…";
+      setTimeout(()=>{
+        st.innerHTML="";
+        const dot=document.createElement("div");
+        dot.style.width= item.stim.radius*2+"px";
+        dot.style.height=item.stim.radius*2+"px";
+        dot.style.borderRadius="50%";
+        dot.style.background=item.stim.color;
+        st.appendChild(dot);
+        document.getElementById("btnClick").style.display="inline-block";
+        t0 = performance.now();
+      }, 300 + Math.floor(Math.random()*700));
+    } else {
+      st.innerHTML = `
+        <div style="font-size:22px;margin-bottom:10px">${item.stim.prompt||"Elige"}</div>
+        <div style="display:flex;gap:24px">
+          <div><div style="font-size:64px">A</div><div style="font-size:40px">${item.stim.A}</div></div>
+          <div><div style="font-size:64px">B</div><div style="font-size:40px">${item.stim.B}</div></div>
+        </div>`;
+      document.getElementById("btnA").style.display="inline-block";
+      document.getElementById("btnB").style.display="inline-block";
+      t0 = performance.now();
+    }
+  }
+
+  async function postRespuesta(respuesta, correcta){
+    const tr_ms = Math.round(performance.now()-t0);
+    const payload = {
+      sesion_id: Number(sid()),
+      ccp_code: current.ccp_code,
+      ejer_code: current.ejer_code,
+      item_id: current.item_id,
+      respuesta: respuesta,
+      correcta: correcta,
+      tr_ms: tr_ms
+    };
+    const headers = {"Content-Type":"application/json"};
+    const csrf = getCookie("csrftoken"); if (csrf) headers["X-CSRFToken"]=csrf;
+
+    const res = await fetch("/api/respuesta", { method:"POST", headers, body: JSON.stringify(payload) });
+    setStatus(res.ok ? "Guardado ✓" : ("Error HTTP "+res.status), res.ok);
+  }
+
+  function autoSave(r,c){ postRespuesta(r,c); }
+
+  // Wire
+  document.getElementById("btnNext").addEventListener("click", nextItem);
+  document.getElementById("btnClick").addEventListener("click", ()=> postRespuesta("CLICK", 1));
+  document.getElementById("btnA").addEventListener("click", ()=> postRespuesta("A", current.correcta==="A" ? 1 : 0));
+  document.getElementById("btnB").addEventListener("click", ()=> postRespuesta("B", current.correcta==="B" ? 1 : 0));
+})();
+</script>
+{% endblock %}

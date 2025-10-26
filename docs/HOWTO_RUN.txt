@@ -1,0 +1,7 @@
+Ejecución
+---------
+1) Asegúrate de tener ./backend/talento_READY_2025-09-14.db
+2) Terminal A:
+   $ make run-evaluator
+3) Terminal B:
+   $ make run-panel

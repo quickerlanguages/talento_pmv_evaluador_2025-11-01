@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8">
+<title>Login</title>
+<form method="post">
+  {% csrf_token %}
+  <label>Usuario</label><input type="text" name="username">
+  <label>Contraseña</label><input type="password" name="password">
+  <button type="submit">Entrar</button>
+  {% if form.errors %}<p style="color:red">Login incorrecto</p>{% endif %}
+</form>

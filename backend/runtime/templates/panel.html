@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Panel Orientador — Talento</title>
+  <style>
+    :root{--bg:#fafafa;--card:#fff;--muted:#6b7280;--line:#eee}
+    body{font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:24px;background:var(--bg)}
+    header{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+    input,select,button{padding:8px 10px;border:1px solid #ddd;border-radius:8px;background:#fff}
+    button{cursor:pointer}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 6px rgba(0,0,0,.04);padding:16px;margin:12px 0}
+    .session-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
+    th{font-weight:600;background:#f7f7f7}
+    .muted{color:var(--muted)}
+    .totals{font-weight:600;background:#f9fafb}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .right{margin-left:auto}
+    .pill{font-size:12px;border:1px solid #e5e7eb;border-radius:999px;padding:2px 8px;background:#fff}
+  </style>
+</head>
+<body>
+  <header>
+    <h1 style="margin:0">Panel del orientador</h1>
+    <div class="muted">M5.4 — vista mínima</div>
+  </header>
+
+  <section class="card">
+    <form id="filters" onsubmit="return false" class="row">
+      <label>Sesión
+        <input type="number" id="f-sesion" placeholder="(todas)"/>
+      </label>
+      <label>CCP
+        <input id="f-ccp" placeholder="(todas) e.g. VPM, MCP"/>
+      </label>
+      <label>Desde
+        <input type="date" id="f-since"/>
+      </label>
+      <label>Hasta (excl.)
+        <input type="date" id="f-until"/>
+      </label>
+      <button id="btn-load">Cargar</button>
+      <button id="btn-csv" type="button">Export CSV</button>
+      <span id="status" class="muted pill right" aria-live="polite"></span>
+    </form>
+  </section>
+
+  <!-- Resumen global agregado (todas las sesiones filtradas) -->
+  <section id="summary" class="card"></section>
+
+  <!-- Listado por sesión -->
+  <div id="out"></div>
+
+  <script>
+    // === Config ===
+    const TOKEN = "mi-token-local"; // si lo cambias en settings, ponlo aquí o inyéctalo por plantilla
+    const $ = (sel)=>document.querySelector(sel);
+    const esc = (x)=>String(x==null?"":x).replace(/[&<>"]/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[s]));
+
+    // Rellena filtros desde la URL (permite compartir/recargar estado)
+    (function hydrateFromURL(){
+      const u = new URL(location.href);
+      $("#f-sesion").value = u.searchParams.get("sesion_id") || "";
+      $("#f-ccp").value    = u.searchParams.get("ccp") || "";
+      $("#f-since").value  = u.searchParams.get("since") || "";
+      $("#f-until").value  = u.searchParams.get("until") || "";
+    })();
+
+    function buildUrl(){
+      const u = new URL(location.origin + "/panel/metrics");
+      const sesion = $("#f-sesion").value.trim();
+      const ccp = $("#f-ccp").value.trim();
+      const since = $("#f-since").value;
+      const until = $("#f-until").value;
+      if(sesion) u.searchParams.set("sesion_id", sesion);
+      if(ccp)    u.searchParams.set("ccp", ccp);
+      if(since)  u.searchParams.set("since", since);
+      if(until)  u.searchParams.set("until", until);
+      return u.toString();
+    }
+
+    function reflectFiltersInLocation(){
+      const u = new URL(location.href);
+      const sesion = $("#f-sesion").value.trim();
+      const ccp = $("#f-ccp").value.trim();
+      const since = $("#f-since").value;
+      const until = $("#f-until").value;
+      [["sesion_id", sesion], ["ccp", ccp], ["since", since], ["until", until]].forEach(([k,v])=>{
+        if(v) u.searchParams.set(k,v); else u.searchParams.delete(k);
+      });
+      history.replaceState(null,"",u.toString());
+    }
+
+    function setStatus(msg){ $("#status").textContent = msg || ""; }
+
+    async function load(){
+      const url = buildUrl();
+      reflectFiltersInLocation();
+      setStatus("Cargando…");
+      $("#out").innerHTML = "";
+      try{
+        const res = await fetch(url, {headers: {"X-Panel-Token": TOKEN}});
+        if(!res.ok){
+          $("#summary").innerHTML = "";
+          $("#out").innerHTML = `<div class="card">Error ${res.status}</div>`;
+          setStatus("");
+          return;
+        }
+        const data = await res.json();
+        const sessions = data.sessions || [];
+        renderSummary(sessions);
+        renderSessions(sessions);
+        const when = new Date().toLocaleString();
+        setStatus(`Actualizado: ${when}`);
+      }catch(e){
+        $("#summary").innerHTML = "";
+        $("#out").innerHTML = `<div class="card">Error de red</div>`;
+        setStatus("");
+      }
+    }
+
+    function renderSummary(sessions){
+      // Agrega sobre sesiones filtradas
+      const acc = { n:0, ac:0, trSum:0, trN:0, byCcp: new Map() };
+      for(const s of sessions){
+        for(const x of s.ccp){
+          acc.n += x.n;
+          acc.ac += x.aciertos;
+          if (x.tr_ms_avg != null) { acc.trSum += x.tr_ms_avg * x.n; acc.trN += x.n; }
+          const e = acc.byCcp.get(x.ccp_code) || { n:0, ac:0, trSum:0, trN:0 };
+          e.n += x.n; e.ac += x.aciertos;
+          if (x.tr_ms_avg != null) { e.trSum += x.tr_ms_avg * x.n; e.trN += x.n; }
+          acc.byCcp.set(x.ccp_code, e);
+        }
+      }
+      const pct = acc.n ? (100*acc.ac/acc.n) : 0;
+      const tr  = acc.trN ? (acc.trSum/acc.trN) : 0;
+
+      const rows = [...acc.byCcp.entries()]
+        .sort((a,b)=>a[0].localeCompare(b[0]))
+        .map(([ccp,e])=>{
+          const p = e.n ? (100*e.ac/e.n) : 0;
+          const t = e.trN ? (e.trSum/e.trN) : 0;
+          return `<tr>
+            <td>${esc(ccp)}</td><td>${e.n}</td><td>${e.ac}</td>
+            <td>${p.toFixed(1)}%</td><td>${t ? t.toFixed(1) : ""}</td>
+          </tr>`;
+        }).join("");
+
+      $("#summary").innerHTML = `
+        <div class="session-header">
+          <h2 style="margin:0">Resumen global</h2>
+          <div class="muted">Items: ${acc.n} · % acierto: ${pct.toFixed(1)}% · TR medio: ${tr.toFixed(1)} ms</div>
+        </div>
+        <table>
+          <thead><tr><th>CCP</th><th>N</th><th>Aciertos</th><th>%</th><th>TR ms</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="5" class="muted">Sin datos</td></tr>`}</tbody>
+        </table>`;
+    }
+
+    function renderSessions(sessions){
+      if(!sessions.length){
+        $("#out").innerHTML = `<div class="card">Sin datos para los filtros actuales.</div>`;
+        return;
+      }
+      const html = sessions.map(s => {
+        const rows = s.ccp.map(x => `
+          <tr>
+            <td>${esc(x.ccp_code)}</td>
+            <td>${x.n}</td>
+            <td>${x.aciertos}</td>
+            <td>${x.acierto_pct}%</td>
+            <td>${x.tr_ms_avg ?? ""}</td>
+            <td class="muted">${esc(x.first_ts)}</td>
+            <td class="muted">${esc(x.last_ts)}</td>
+          </tr>
+        `).join("");
+        const t = s.totals;
+        return `
+          <section class="card">
+            <div class="session-header">
+              <h2 style="margin:0">Sesión ${esc(s.sesion_id)}</h2>
+              <div class="muted">Total items: ${t.n} · % acierto: ${t.acierto_pct}% · TR medio: ${t.tr_ms_avg} ms</div>
+            </div>
+            <table>
+              <thead>
+                <tr><th>CCP</th><th>N</th><th>Aciertos</th><th>%</th><th>TR ms</th><th>Primero</th><th>Último</th></tr>
+              </thead>
+              <tbody>${rows}
+                <tr class="totals"><td>Σ</td><td>${t.n}</td><td>${t.aciertos}</td><td>${t.acierto_pct}%</td><td>${t.tr_ms_avg}</td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </section>`;
+      }).join("");
+      $("#out").innerHTML = html;
+    }
+
+    // Eventos
+    $("#btn-load").addEventListener("click", load);
+    $("#filters").addEventListener("keydown", (e)=>{
+      if(e.key === "Enter"){ e.preventDefault(); load(); }
+    });
+    $("#btn-csv").addEventListener("click", () => {
+      const base = buildUrl();
+      const url = base + (base.includes("?") ? "&" : "?") + "format=csv";
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "panel_metrics.csv";
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.click();
+    });
+
+    // Auto-carga
+    load();
+  </script>
+</body>
+</html>

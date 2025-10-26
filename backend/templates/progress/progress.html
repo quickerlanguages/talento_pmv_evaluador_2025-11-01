@@ -1,0 +1,308 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'talento_ui/progress.css' %}">
+
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Talento · Progreso</title>
+  <link rel="stylesheet" href="{% static 'talento_ui/progress.css' %}">
+  <!-- tu <style> inline aquí (lo que ya tienes) -->
+  <style>
+    :root { color-scheme: light dark; --gap:12px; --pad:16px; --radius:10px; --muted:0.6; }
+    *{box-sizing:border-box} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;line-height:1.35;margin:0}
+    header{position:sticky;top:0;background:Canvas;padding:14px var(--pad);border-bottom:1px solid color-mix(in oklab, CanvasText 10%, Canvas 90%)}
+    header h1{margin:0;font-size:1.15rem}
+    main{padding:var(--pad);display:grid;gap:var(--gap);max-width:1100px;margin-inline:auto}
+    .grid{display:grid;gap:var(--gap)}
+    @media (min-width:900px){ .grid-2{grid-template-columns:1fr 1fr} }
+    .card{border:1px solid color-mix(in oklab, CanvasText 12%, Canvas 88%);border-radius:var(--radius);padding:var(--pad);background:Canvas}
+    .muted{opacity:var(--muted)}
+    .row{display:flex;align-items:center;gap:10px}
+    .bar-wrap{width:100%;height:12px;background:color-mix(in oklab, CanvasText 8%, Canvas 92%);border-radius:999px;overflow:hidden}
+    .bar-fill{height:100%;background:color-mix(in oklab, Highlight 65%, Canvas 35%);width:0%}
+    .kpi{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+    .kpi .big{font-size:1.8rem;font-weight:700}
+    .kpi small{opacity:var(--muted)}
+    table{width:100%;border-collapse:collapse;font-size:0.95rem}
+    th,td{padding:10px;border-bottom:1px solid color-mix(in oklab, CanvasText 10%, Canvas 90%)}
+    th{text-align:left}
+    .chip{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid color-mix(in oklab, CanvasText 20%, Canvas 80%);font-size:0.8rem}
+    .ok{color:oklch(0.68 0.12 150)}
+    .ko{color:oklch(0.62 0.16 27)}
+    .controls{display:flex;flex-wrap:wrap;gap:10px}
+    input[type="search"],select{padding:8px 10px;border-radius:8px;border:1px solid color-mix(in oklab, CanvasText 18%, Canvas 82%);min-width:160px}
+    .btn{appearance:none;border:none;border-radius:9px;padding:10px 12px;background:color-mix(in oklab, Highlight 70%, Canvas 30%);color:CanvasText;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid color-mix(in oklab, CanvasText 18%, Canvas 82%)}
+    /* skeleton */
+    .skeleton{position:relative;overflow:hidden;background:color-mix(in oklab, CanvasText 6%, Canvas 94%)}
+    .skeleton::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg, transparent, color-mix(in oklab, CanvasText 8%, Canvas 92%), transparent);animation:shimmer 1.2s infinite}
+    @keyframes shimmer{100%{transform:translateX(100%)}}
+    .sr-only{position:absolute;left:-9999px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Progreso de sesión <span id="sesion-label" class="muted"></span></h1>
+  </header>
+
+  <main>
+    <!-- KPI GLOBAL -->
+    <section class="card" aria-labelledby="h-global">
+      <h2 id="h-global">Resumen global</h2>
+      <div id="progress-global" class="kpi" aria-live="polite">
+        <div class="big skeleton" style="width:100px;height:32px;border-radius:8px;"></div>
+        <div class="bar-wrap" aria-label="Progreso global">
+          <div class="bar-fill" style="width:0%"></div>
+        </div>
+        <div class="muted skeleton" style="width:140px;height:16px;border-radius:6px;"></div>
+      </div>
+      <div class="muted" id="kpi-aux"></div>
+    </section>
+
+    <!-- BARRAS POR CCP + CONTROLES -->
+    <section class="card" aria-labelledby="h-ccp">
+      <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <h2 id="h-ccp" style="margin:0">Capacidades (CCP)</h2>
+        <div class="controls" role="group" aria-label="Filtros">
+          <label><span class="sr-only">Orden</span>
+            <select id="sort-ccp">
+              <option value="n_desc">Orden: más ítems</option>
+              <option value="acierto_desc">% acierto ↓</option>
+              <option value="tr_asc">TR medio ↑</option>
+            </select>
+          </label>
+          <button class="btn ghost" id="btn-reset">Reset</button>
+        </div>
+      </div>
+      <div id="pb-ccp" class="grid" style="margin-top:8px">
+        <!-- barras renderizadas vía JS -->
+        <div class="skeleton" style="height:14px;border-radius:999px"></div>
+        <div class="skeleton" style="height:14px;border-radius:999px"></div>
+        <div class="skeleton" style="height:14px;border-radius:999px"></div>
+      </div>
+    </section>
+
+    <!-- ÚLTIMOS ÍTEMS -->
+    <section class="card" aria-labelledby="h-items">
+      <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <h2 id="h-items" style="margin:0">Últimos ítems</h2>
+        <div class="controls">
+          <input id="q" type="search" placeholder="Filtrar por item_id o CCP…"/>
+          <button class="btn" id="btn-clear">Limpiar</button>
+        </div>
+      </div>
+      <div style="overflow:auto">
+        <table aria-describedby="h-items">
+          <thead>
+            <tr>
+              <th>item_id</th>
+              <th>CCP</th>
+              <th>Correcta</th>
+              <th>TR (ms)</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body">
+            <tr><td colspan="5"><div class="skeleton" style="height:20px;border-radius:6px"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:10px">
+        <div class="muted" id="tbl-hint"></div>
+        <div class="row" style="gap:6px">
+          <button class="btn ghost" id="prev">Anterior</button>
+          <button class="btn ghost" id="next">Siguiente</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPORT -->
+    <section class="card" aria-labelledby="h-exp">
+      <h2 id="h-exp">Exportar</h2>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <a id="exp-json" class="btn" href="#" download>Descargar JSON</a>
+        <a id="exp-csv" class="btn ghost" href="#" download>Descargar CSV</a>
+        <span class="muted">Exporta la sesión completa desde el backend si existe <code>/api/export/session/:id</code>.</span>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // -------- helpers --------
+    const $ = sel => document.querySelector(sel);
+    const fmtPct = v => (v==null||Number.isNaN(v)) ? "–" : `${(v).toFixed(1)}%`;
+    const fmtMs  = v => (v==null||Number.isNaN(v)) ? "–" : `${Math.round(v)}`;
+    const qp = new URLSearchParams(location.search);
+    const SESION_ID = qp.get("sesion_id") || "1";
+    const DEMO = qp.get("demo")==="1";
+
+    function setSesLabel(id){ $("#sesion-label").textContent = `#${id}` }
+
+    function renderProgress(el, pct, kpis){
+      const fill = el.querySelector(".bar-fill");
+      const bigNode = el.querySelector(".big");
+      const rightNode = el.querySelector(".muted");
+      bigNode.classList.remove("skeleton");
+      rightNode.classList.remove("skeleton");
+      bigNode.textContent = fmtPct(pct ?? 0);
+      requestAnimationFrame(()=>{ fill.style.width = `${Math.max(0, Math.min(pct || 0, 100))}%`; });
+      $("#kpi-aux").innerHTML = `
+        <span class="chip" title="Acierto global">%: ${fmtPct(kpis?.acierto_pct)}</span>
+        <span class="chip" title="Tiempo de reacción medio">TR̄: ${fmtMs(kpis?.tr_ms_mean)} ms</span>
+        <span class="chip" title="Número de ítems jugados">n: ${kpis?.n_total ?? "–"}</span>`;
+    }
+
+    function renderCCPBars(container, arr){
+      container.innerHTML = "";
+      arr.forEach(ccp=>{
+        const pct = ccp.acierto_pct ?? 0;
+        const row = document.createElement("div");
+        row.className = "row";
+        row.setAttribute("role","group");
+        row.setAttribute("aria-label", `CCP ${ccp.ccp_code}`);
+        row.innerHTML = `
+          <div style="width:70px"><strong>${ccp.ccp_code}</strong></div>
+          <div class="bar-wrap" aria-label="Acierto ${ccp.ccp_code}">
+            <div class="bar-fill" style="width:${Math.max(0, Math.min(pct, 100))}%"></div>
+          </div>
+          <div style="width:72px;text-align:right">${fmtPct(pct)}</div>
+          <div class="muted" style="width:88px;text-align:right">n=${ccp.n ?? "–"}</div>
+          <div class="muted" style="width:110px;text-align:right">TR̄ ${fmtMs(ccp.tr_ms_mean)} ms</div>`;
+        container.appendChild(row);
+      });
+    }
+
+    function renderRecentItems(tbody, items, q="", page=1, pageSize=15){
+      const filt = q ? items.filter(r => (r.item_id||"").includes(q) || (r.ccp_code||"").includes(q.toUpperCase())) : items;
+      const total = filt.length, pages = Math.max(1, Math.ceil(total/pageSize));
+      const p = Math.max(1, Math.min(page, pages));
+      const slice = filt.slice((p-1)*pageSize, (p)*pageSize);
+      tbody.innerHTML = slice.map(r=>`
+        <tr>
+          <td><code>${r.item_id}</code></td>
+          <td>${r.ccp_code}</td>
+          <td class="${r.correcta ? "ok" : "ko"}">${r.correcta ? "✔︎" : "✘"}</td>
+          <td>${fmtMs(r.tr_ms)}</td>
+          <td class="muted">${r.ts ? new Date(r.ts).toLocaleString() : "–"}</td>
+        </tr>`).join("") || `<tr><td colspan="5" class="muted">Sin datos</td></tr>`;
+      $("#tbl-hint").textContent = `Mostrando ${slice.length} de ${total} · Página ${p}/${pages}`;
+      return {pages, page:p, total};
+    }
+
+    function sortBy(arr, key){
+      const copy = [...arr];
+      if(key==="n_desc") copy.sort((a,b)=> (b.n ?? 0) - (a.n ?? 0));
+      if(key==="acierto_desc") copy.sort((a,b)=> (b.acierto_pct ?? 0) - (a.acierto_pct ?? 0));
+      if(key==="tr_asc") copy.sort((a,b)=> (a.tr_ms_mean ?? 1e9) - (b.tr_ms_mean ?? 1e9));
+      return copy;
+    }
+
+    // -------- main flow --------
+    setSesLabel(SESION_ID);
+
+    const DEMO_DATA = {
+      sesion_id: Number(SESION_ID),
+      kpis: { acierto_pct: 71.2, tr_ms_mean: 835, n_total: 127 },
+      by_ccp: [
+        { ccp_code:"VPM", n:34, acierto_pct:68.8, tr_ms_mean:720 },
+        { ccp_code:"MCP", n:28, acierto_pct:75.0, tr_ms_mean:840 },
+        { ccp_code:"MDT", n:22, acierto_pct:69.0, tr_ms_mean:910 },
+        { ccp_code:"INH", n:18, acierto_pct:64.5, tr_ms_mean:780 },
+        { ccp_code:"FM",  n:15, acierto_pct:73.3, tr_ms_mean:860 },
+        { ccp_code:"ABS", n:10, acierto_pct:80.0, tr_ms_mean:980 }
+      ],
+      recent_items: Array.from({length:45}).map((_,i)=>({
+        item_id:`demo_item_${String(i+1).padStart(3,"0")}`,
+        ccp_code:["VPM","MCP","MDT","INH","FM","ABS"][i%6],
+        correcta: (i%3!==0)?1:0,
+        tr_ms: 600 + ((i*37)%700),
+        ts: new Date(Date.now() - i*3600e3).toISOString()
+      }))
+    };
+
+    async function getData(){
+      if(DEMO){
+        return DEMO_DATA;
+      }
+      try{
+        const r = await fetch(`/api/progress?sesion_id=${encodeURIComponent(SESION_ID)}`, {headers:{"Accept":"application/json"}});
+        if(!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+      }catch(err){
+        console.warn("Fallo fetch, uso DEMO:", err);
+        return DEMO_DATA;
+      }
+    }
+
+function normalizeProgressData(d){
+    if (!d || typeof d !== "object") return {kpis:{acierto_pct:0,tr_ms_mean:null,n_total:0}, by_ccp:[], recent_items:[]};
+
+    // 1) kpis: array -> objeto ponderado
+    const arr = Array.isArray(d.kpis) ? d.kpis : [];
+    const n_total = arr.reduce((s,r)=> s + (r.n||0), 0);
+    const wAcc   = arr.reduce((s,r)=> s + ((r.acierto_pct||0)*(r.n||0)), 0);
+    const wTR    = arr.reduce((s,r)=> s + ((r.tr_ms_avg||0)*(r.n||0)), 0);
+    const kpis_obj = {
+      acierto_pct: n_total ? (wAcc / n_total) : 0,
+      tr_ms_mean:  n_total ? (wTR  / n_total) : null,
+      n_total
+    };
+
+    // 2) by_ccp: renombrar tr_ms_avg -> tr_ms_mean
+    const by_ccp = (Array.isArray(d.by_ccp) ? d.by_ccp : []).map(r=>({
+      ccp_code: r.ccp_code,
+      n: r.n,
+      acierto_pct: r.acierto_pct,
+      tr_ms_mean: r.tr_ms_avg
+    }));
+
+    // 3) recent_items: si no viene, vacío (la UI ya lo tolera)
+    const recent_items = Array.isArray(d.recent_items) ? d.recent_items : [];
+
+    // Conservo by_ejer por si la usas más adelante
+    const by_ejer = Array.isArray(d.by_ejer) ? d.by_ejer : [];
+
+    return { sesion_id: d.sesion_id ?? null, kpis: kpis_obj, by_ccp, recent_items, by_ejer };
+  }
+
+
+    
+    (async ()=>{
+      const raw = await getData();
+      const data = normalizeProgressData(raw);
+
+      // Global
+      const k = data.kpis || {acierto_pct:0,tr_ms_mean:null,n_total:0};
+      renderProgress(document.getElementById("progress-global"), k.acierto_pct, k);
+
+      // CCP bars (with sort control)
+      let currentSort = $("#sort-ccp").value;
+      function refreshCCP(){ renderCCPBars($("#pb-ccp"), sortBy(data.by_ccp||[], currentSort)); }
+      $("#sort-ccp").addEventListener("change", (e)=>{ currentSort = e.target.value; refreshCCP(); });
+      $("#btn-reset").addEventListener("click", ()=>{ $("#sort-ccp").value="n_desc"; currentSort="n_desc"; refreshCCP(); });
+      refreshCCP();
+
+      // Tabla items (filter + simple pager)
+      let page=1;
+      function refreshTable(){
+        const q = $("#q").value.trim();
+        const res = renderRecentItems($("#tbl-body"), data.recent_items||[], q, page, 15);
+        page = res.page; $("#prev").disabled = (page<=1); $("#next").disabled = (page>=res.pages);
+      }
+      $("#q").addEventListener("input", ()=>{ page=1; refreshTable(); });
+      $("#btn-clear").addEventListener("click", ()=>{ $("#q").value=""; page=1; refreshTable(); });
+      $("#prev").addEventListener("click", ()=>{ page=Math.max(1, page-1); refreshTable(); });
+      $("#next").addEventListener("click", ()=>{ page=page+1; refreshTable(); });
+      refreshTable();
+
+      // Export links (si tienes endpoint server)
+      $("#exp-json").href = `/api/export/session/${encodeURIComponent(SESION_ID)}?format=json`;
+      $("#exp-json").download = `talento_session_${SESION_ID}.json`;
+      $("#exp-csv").href  = `/api/export/session/${encodeURIComponent(SESION_ID)}?format=csv`;
+      $("#exp-csv").download = `talento_session_${SESION_ID}.csv`;
+    })();
+  </script>
+</body>
+</html>

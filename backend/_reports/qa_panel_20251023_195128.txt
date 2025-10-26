@@ -1,0 +1,21 @@
+== QA Panel http://127.0.0.1:8000 — jueves, 23 de octubre de 2025, 19:51:28 CEST
+
+[DB] Tamaño por sesión (100..119, top 5)
+
+[DB] Resumen por CCP (100..119)
+
+[BENCH] /panel/metrics (JSON,5)
+0.000138
+0.000122
+0.000138
+0.000114
+0.000140
+AVG: 0.130 ms
+
+[BENCH] /panel/metrics?format=csv (5)
+0.000121
+0.000142
+0.000127
+0.000101
+0.000100
+AVG: 0.118 ms

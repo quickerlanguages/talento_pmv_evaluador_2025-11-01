@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}Talento{% endblock %}</title>
+  <style>body{font-family:system-ui,Arial,sans-serif;margin:2rem} nav a{margin-right:1rem}</style>
+</head>
+<body>
+  <nav>
+    <a href="/">Inicio</a>
+    <a href="/play-ui/">Play UI</a>
+    <a href="/progress">Progreso</a>
+  </nav>
+  <hr />
+  {% block content %}{% endblock %}
+</body>
+</html>

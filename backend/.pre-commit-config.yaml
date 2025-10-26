@@ -1,0 +1,9 @@
+repos:
+- repo: local
+  hooks:
+  - id: ban-backups-and-zips
+    name: Ban backups and release zips
+    language: system
+    entry: ./scripts/ban_backups_and_zips.sh
+    pass_filenames: false
+    stages: [commit]
