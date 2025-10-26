@@ -8,3 +8,8 @@ data/exports/
 *.asc
 .env
 .DS_Store
+.play.pid
+.panel.pid
+backend/*.db
+backend/*.db-*
+.env.local
