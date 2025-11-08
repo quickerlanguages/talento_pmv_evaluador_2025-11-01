@@ -6,15 +6,34 @@ on:
       - 'rel/*'
 
 permissions:
-  contents: write  # necesario para crear/editar la release y subir assets
+  contents: write
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout (full + exact tag + tags)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}     # checkout EXACTO del tag que dispara
+          fetch-depth: 0             # historia completa
+          fetch-tags: true
+
+      - name: Quick debug (Makefile + dist target)
+        run: |
+          pwd
+          ls -la
+          if [ ! -f Makefile ] && [ ! -f makefile ]; then
+            echo "✖ No hay Makefile en $(pwd)"
+            exit 1
+          fi
+          echo "— Cabecera del Makefile —"
+          sed -n '1,200p' Makefile 2>/dev/null || sed -n '1,200p' makefile || true
+          echo "— Buscando diana 'dist' —"
+          if ! grep -nE '^[[:space:]]*(\.PHONY:.*\bdist\b|dist:)' Makefile makefile 2>/dev/null; then
+            echo "✖ La diana 'dist' no existe en este commit/tag"
+            exit 1
+          fi
 
       - name: Install system deps
         run: |
@@ -27,47 +46,8 @@ jobs:
           make dist-check
           make dist-verify
 
-      - name: Locate artifacts
-        id: artifacts
-        run: |
-          ZIP_PATH="$(ls -t ../*.clean.zip | head -1)"
-          SHA_PATH="../SHA256SUMS.txt"
-          echo "zip_path=$ZIP_PATH" >> $GITHUB_OUTPUT
-          echo "sha_path=$SHA_PATH" >> $GITHUB_OUTPUT
-          echo "zip_name=$(basename "$ZIP_PATH")" >> $GITHUB_OUTPUT
-          echo "sha_sum=$(cut -d' ' -f1 "$SHA_PATH")" >> $GITHUB_OUTPUT
-
-      - name: Compose release notes
-        id: notes
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          {
-            echo "# Talento PMV Evaluador — ${TAG}"
-            echo
-            echo "- Tag: ${TAG}"
-            echo "- SHA256: ${{ steps.artifacts.outputs.sha_sum }}"
-            echo "- Artefacto ZIP: ${{ steps.artifacts.outputs.zip_name }}"
-            echo
-            echo "## Verificación local"
-            echo "\`shasum -a 256 -c SHA256SUMS.txt\` → OK"
-          } > RELEASE_NOTES.md
-
-      - name: Create / Update GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Talento PMV Evaluador ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md
-          files: |
-            ${{ steps.artifacts.outputs.zip_path }}
-            ${{ steps.artifacts.outputs.sha_path }}
+      - name: Publish GitHub Release (via Makefile)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload build artifacts (debug)
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-output
-          path: |
-            ${{ steps.artifacts.outputs.zip_path }}
-            ${{ steps.artifacts.outputs.sha_path }}
+        run: |
+          make release-gh CUSTOM_TAG="${GITHUB_REF_NAME}"
