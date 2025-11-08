@@ -15,8 +15,8 @@ SHASUM ?= shasum -a 256
 BACKEND_DIR ?= $(ROOT_DIR)/backend
 BACKEND_DB  ?= $(BACKEND_DIR)/talento_READY_2025-09-14.db
 
-PLAY_HOST ?= 127.0.0.1
-PLAY_PORT ?= 5001
+PLAY_HOST  ?= 127.0.0.1
+PLAY_PORT  ?= 5001
 PANEL_HOST ?= 127.0.0.1
 PANEL_PORT ?= 5002
 
@@ -30,16 +30,16 @@ ZIPFLAGS ?= -X -D
 export SOURCE_DATE_EPOCH ?= 1700000000
 
 # --- CI-friendly outputs ---
-CI ?= $(CI)
+OUT_DIR ?= ..
 ifeq ($(CI),true)
   OUT_DIR := dist
-else
-  OUT_DIR := ..
 endif
 
 # Derivados
-ZIP_PATH := $(OUT_DIR)/$(ZIP)
-SHA_FILE := $(OUT_DIR)/SHA256SUMS.txt
+ZIP_PATH     := $(OUT_DIR)/$(ZIP)
+SHA_FILE     := $(OUT_DIR)/SHA256SUMS.txt
+ZIP_DIR      := $(dir $(ZIP_PATH))
+ZIP_BASENAME := $(notdir $(ZIP_PATH))
 
 # --- Rutas de “release” local ---
 RELEASE_DIR          ?= $(HOME)/Releases/Talento
@@ -65,7 +65,7 @@ help:
 	@echo "  dev-up|dev-status|dev-logs|dev-down → Supervisor simple"
 	@echo "  verify-exclude        → Comprueba patrones mínimos en exclude.lst"
 	@echo "  pmv-package           → ZIP rápido del PMV (legacy, no reproducible)"
-	@echo "  dist                  → Genera ZIP reproducible + SHA256SUMS.txt"
+	@echo "  dist                  → Genera ZIP reproducible + SHA256SUMS.txt (sin rutas)"
 	@echo "  dist-check            → Escanea archivos prohibidos dentro del ZIP"
 	@echo "  dist-list             → Lista el contenido del ZIP"
 	@echo "  dist-show-hash        → Muestra el hash actual del ZIP"
@@ -100,6 +100,8 @@ print-vars:
 	@echo "EXCLUDE     = $(EXCLUDE)"
 	@echo "OUT_DIR     = $(OUT_DIR)"
 	@echo "ZIP_PATH    = $(ZIP_PATH)"
+	@echo "ZIP_DIR     = $(ZIP_DIR)"
+	@echo "ZIP_BASENAME= $(ZIP_BASENAME)"
 	@echo "SHA_FILE    = $(SHA_FILE)"
 	@echo "RELEASE_DIR = $(RELEASE_DIR)"
 	@echo "PROMOTE_DIR = $(PROMOTE_DIR)"
@@ -179,7 +181,7 @@ pmv-package:
 	  -x "*/.venv/*" "*/__pycache__/*" "*.pyc" "*.pyo" "data/exports/*" >/dev/null; \
 	echo "  OK: $$OUT"; $(SHASUM) "$$OUT"
 
-# --- Dev supervisor (una sola terminal) ---
+# --- Dev supervisor ---
 .PHONY: dev-up dev-down dev-status dev-logs
 LOG_DIR ?= logs
 
@@ -232,61 +234,38 @@ dev-down:
 	@rm -f .play.pid .panel.pid
 	@echo "OK: servicios detenidos"
 
-# --- Smoke tests / Healthchecks ---
-.PHONY: smoke-up smoke-health smoke-down smoke
-HEALTH_RETRIES ?= 30
-HEALTH_SLEEP   ?= 0.5
-
-smoke-up: dev-up
-
-smoke-health:
-	@echo "→ comprobando salud play-ui y panel-ui"
-	@ok=0; \
-	for i in $$(seq 1 $(HEALTH_RETRIES)); do \
-	  c1=$$(curl -s -o /dev/null -w "%{http_code}" "http://$(PLAY_HOST):$(PLAY_PORT)/health" || true); \
-	  c2=$$(curl -s -o /dev/null -w "%{http_code}" "http://$(PANEL_HOST):$(PANEL_PORT)/health" || true); \
-	  if [ "$$c1" = "200" ] && [ "$$c2" = "200" ]; then ok=1; break; fi; \
-	  sleep $(HEALTH_SLEEP); \
-	done; \
-	[ $$ok -eq 1 ] || (echo "✖ healthcheck falló (play=$$c1, panel=$$c2)"; exit 1); \
-	echo "✔ health OK (play=$(PLAY_HOST):$(PLAY_PORT), panel=$(PANEL_HOST):$(PANEL_PORT))"
-
-smoke-down: dev-down
-
-smoke: smoke-up smoke-health smoke-down
-	@echo "✔ smoke test OK"
-
 # --- Dist: ZIP limpio reproducible + SHA ---
 .PHONY: dist dist-check dist-list dist-show-hash dist-verify dist-clean
 dist: check-tools $(EXCLUDE)
 	@test -f $(EXCLUDE) || (echo "✖ Falta $(EXCLUDE)"; exit 1)
-	@mkdir -p $(OUT_DIR)
-	@rm -f $(ZIP_PATH) $(SHA_FILE)
-	@zip -r $(ZIPFLAGS) $(ZIP_PATH) . -x@$(EXCLUDE)
-	@$(SHASUM) $(ZIP_PATH) > $(SHA_FILE)
+	@mkdir -p "$(OUT_DIR)"
+	@rm -f "$(ZIP_PATH)" "$(SHA_FILE)"
+	@zip -r $(ZIPFLAGS) "$(ZIP_PATH)" . -x@$(EXCLUDE)
+	@cd "$(ZIP_DIR)" && $(SHASUM) "$(ZIP_BASENAME)" > SHA256SUMS.txt
 	@echo "Hecho: $(ZIP_PATH) y $(SHA_FILE)"
 
 dist-check:
-	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
-	@zipinfo -1 $(ZIP_PATH) | egrep '\.pid$$|(^|/)\.coverage$$|\.db|\.sqlite|(^|/)\.env($$|\.local$$)' && \
+	@test -f "$(ZIP_PATH)" || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@zipinfo -1 "$(ZIP_PATH)" | egrep '\.pid$$|(^|/)\.coverage$$|\.db|\.sqlite|(^|/)\.env($$|\.local$$)' && \
 	  (echo "✖ Encontrado algo prohibido"; exit 1) || echo "✔ ZIP limpio"
 
 dist-list:
-	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
-	@zipinfo -1 $(ZIP_PATH) | sed -n '1,200p'
+	@test -f "$(ZIP_PATH)" || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@zipinfo -1 "$(ZIP_PATH)" | sed -n '1,200p'
 
 dist-show-hash:
-	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
-	@$(SHASUM) $(ZIP_PATH)
+	@test -f "$(ZIP_PATH)" || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@cd "$(ZIP_DIR)" && $(SHASUM) "$(ZIP_BASENAME)"
 
 dist-verify:
-	@test -f $(SHA_FILE) || (echo "✖ No existe $(SHA_FILE)"; exit 1)
-	@$(SHASUM) -c $(SHA_FILE)
+	@test -f "$(SHA_FILE)" || (echo "✖ No existe $(SHA_FILE)"; exit 1)
+	@cd "$(ZIP_DIR)" && $(SHASUM) -c "SHA256SUMS.txt"
+	@echo "✔ Verificado"
 
 dist-clean:
-	@rm -f $(ZIP_PATH) $(SHA_FILE)
+	@rm -f "$(ZIP_PATH)" "$(SHA_FILE)"
 
-# --- Release: copiar artefactos y generar notas ---
+# --- Release ---
 .PHONY: release release-promote
 release: dist dist-check
 	@mkdir -p "$(RELEASE_DIR)"
@@ -297,7 +276,7 @@ release: dist dist-check
 	{ \
 	  echo "# Talento PMV Evaluador — Release $${ts}"; \
 	  echo ""; \
-	  echo "- Artefacto: $$(basename "$(ZIP_PATH)")"; \
+	  echo "- Artefacto: $(ZIP_BASENAME)"; \
 	  echo "- SHA256: $${hash}"; \
 	  echo "- Origen: $(ROOT_DIR)"; \
 	  echo ""; \
@@ -319,7 +298,6 @@ bump-version:
 	@git commit -m "chore: bump VERSION -> $(DIST_NAME)" || true
 	@echo "✔ VERSION actualizado a $(DIST_NAME)"
 
-# Tag idempotente (usa SHA de ZIP en el mensaje)
 tag-release: dist-verify
 	@TAG="rel/$(DIST_NAME)"; \
 	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
@@ -330,7 +308,7 @@ tag-release: dist-verify
 	  echo "✔ tag $$TAG creado"; \
 	fi
 
-# --- QA pipeline (one-shot) ---
+# --- QA pipeline ---
 .PHONY: qa-all qa-dryrun
 qa-all: check-tools dist verify-exclude dist-check dist-verify release
 	@echo ""
@@ -344,31 +322,3 @@ qa-all: check-tools dist verify-exclude dist-check dist-verify release
 qa-dryrun: check-tools
 	@test -f $(EXCLUDE) || (echo "✖ Falta $(EXCLUDE)"; exit 1)
 	@echo "✔ Entorno OK. Listo para 'make qa-all'"
-
-# --- Quality of life ---
-.PHONY: doctor dist-size clean-logs git-push-tags dist-open release-gh doctor-make
-doctor: check-tools print-vars
-	@echo "✔ Entorno OK"
-
-dist-size:
-	@test -f "$(ZIP_PATH)" || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
-	@du -h "$(ZIP_PATH)"
-
-clean-logs:
-	@rm -f logs/*.log .play.pid .panel.pid 2>/dev/null || true
-	@echo "✔ logs y pidfiles limpiados"
-
-git-push-tags:
-	@git push || true
-	@git push --tags || true
-	@echo "✔ commits y tags enviados"
-
-dist-open:
-	@open "$(OUT_DIR)" || true
-
-release-gh: check-tools dist-check dist-verify
-	@scripts/release_gh.sh
-
-doctor-make:
-	@echo "make path: $$(command -v make)"
-	@make --version || true
