@@ -1,0 +1,40 @@
+# Git y entornos
+.git/*
+.git/**
+.venv/*
+.venv/**
+backend/.git/*
+backend/.git/**
+
+# Logs y estáticos pesados
+logs/*
+logs/**
+backend/staticfiles/*
+backend/staticfiles/**
+
+# SQL de runtime y reportes
+backend/runtime/sql/*
+backend/runtime/sql/**
+backend/_reports/*
+backend/_reports/**
+# Datos de sesiones
+data/sessions/*
+data/sessions/**
+
+# Basura/secretos comunes
+*.zip
+*.db*
+*.sqlite*
+.DS_Store
+*/.DS_Store
+.coverage
+*/.coverage
+*.pid
+
+# Env en cualquier nivel
+.env
+.env.local
+*/.env
+*/.env.local
+backend/.env
+backend/.env.local
