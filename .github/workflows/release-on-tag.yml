@@ -1,0 +1,73 @@
+name: Release on tag (rel/*)
+
+on:
+  push:
+    tags:
+      - 'rel/*'
+
+permissions:
+  contents: write  # necesario para crear/editar la release y subir assets
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip unzip sqlite3 curl jq lsof
+
+      - name: Build dist (ZIP reproducible + SHA)
+        run: |
+          make dist
+          make dist-check
+          make dist-verify
+
+      - name: Locate artifacts
+        id: artifacts
+        run: |
+          ZIP_PATH="$(ls -t ../*.clean.zip | head -1)"
+          SHA_PATH="../SHA256SUMS.txt"
+          echo "zip_path=$ZIP_PATH" >> $GITHUB_OUTPUT
+          echo "sha_path=$SHA_PATH" >> $GITHUB_OUTPUT
+          echo "zip_name=$(basename "$ZIP_PATH")" >> $GITHUB_OUTPUT
+          echo "sha_sum=$(cut -d' ' -f1 "$SHA_PATH")" >> $GITHUB_OUTPUT
+
+      - name: Compose release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          {
+            echo "# Talento PMV Evaluador — ${TAG}"
+            echo
+            echo "- Tag: ${TAG}"
+            echo "- SHA256: ${{ steps.artifacts.outputs.sha_sum }}"
+            echo "- Artefacto ZIP: ${{ steps.artifacts.outputs.zip_name }}"
+            echo
+            echo "## Verificación local"
+            echo "\`shasum -a 256 -c SHA256SUMS.txt\` → OK"
+          } > RELEASE_NOTES.md
+
+      - name: Create / Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Talento PMV Evaluador ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            ${{ steps.artifacts.outputs.zip_path }}
+            ${{ steps.artifacts.outputs.sha_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-output
+          path: |
+            ${{ steps.artifacts.outputs.zip_path }}
+            ${{ steps.artifacts.outputs.sha_path }}
