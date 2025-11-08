@@ -27,6 +27,18 @@ EXCLUDE   ?= exclude.lst
 ZIPFLAGS ?= -X -D
 export SOURCE_DATE_EPOCH ?= 1700000000
 
+# --- CI-friendly outputs ---
+CI ?= $(CI)
+ifeq ($(CI),true)
+  OUT_DIR := dist
+else
+  OUT_DIR := ..
+endif
+
+# Derivados
+ZIP_PATH := $(OUT_DIR)/$(ZIP)
+SHA_FILE := $(OUT_DIR)/SHA256SUMS.txt
+
 # Carpetas de salida de “release”
 RELEASE_DIR ?= $(HOME)/Releases/Talento
 RELEASE_NOTES_PREFIX ?= RELEASE_NOTES
@@ -63,6 +75,7 @@ help:
 	@echo "  tag-release           → Crea tag git anotado con SHA del ZIP"
 	@echo "  smoke                 → Arranca → healthcheck → para (endpoints /health)"
 	@echo "  qa-dryrun / qa-all    → Pipeline QA (verificaciones + release)"
+	@echo "  release-gh            → Publica en GitHub (usa scripts/release_gh.sh)"
 
 # --- Utilidades ---
 .PHONY: check-tools print-vars clean
@@ -82,6 +95,9 @@ print-vars:
 	@echo "DIST_NAME   = $(DIST_NAME)"
 	@echo "ZIP         = $(ZIP)"
 	@echo "EXCLUDE     = $(EXCLUDE)"
+	@echo "OUT_DIR     = $(OUT_DIR)"
+	@echo "ZIP_PATH    = $(ZIP_PATH)"
+	@echo "SHA_FILE    = $(SHA_FILE)"
 	@echo "RELEASE_DIR = $(RELEASE_DIR)"
 	@echo "PROMOTE_DIR = $(PROMOTE_DIR)"
 
@@ -241,54 +257,55 @@ smoke: smoke-up smoke-health smoke-down
 .PHONY: dist dist-check dist-list dist-show-hash dist-verify dist-clean
 dist: check-tools $(EXCLUDE)
 	@test -f $(EXCLUDE) || (echo "✖ Falta $(EXCLUDE)"; exit 1)
-	@rm -f ../$(ZIP) ../SHA256SUMS.txt
-	@zip -r $(ZIPFLAGS) ../$(ZIP) . -x@$(EXCLUDE)
-	@( cd .. && shasum -a 256 $(ZIP) > SHA256SUMS.txt )
-	@echo "Hecho: ../$(ZIP) y ../SHA256SUMS.txt"
+	@mkdir -p $(OUT_DIR)
+	@rm -f $(ZIP_PATH) $(SHA_FILE)
+	@zip -r $(ZIPFLAGS) $(ZIP_PATH) . -x@$(EXCLUDE)
+	@shasum -a 256 $(ZIP_PATH) > $(SHA_FILE)
+	@echo "Hecho: $(ZIP_PATH) y $(SHA_FILE)"
 
 dist-check:
-	@test -f ../$(ZIP) || (echo "✖ No existe ../$(ZIP). Ejecuta: make dist"; exit 1)
-	@zipinfo -1 ../$(ZIP) | egrep '\.pid$$|(^|/)\.coverage$$|\.db|\.sqlite|(^|/)\.env($$|\.local$$)' && \
+	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@zipinfo -1 $(ZIP_PATH) | egrep '\.pid$$|(^|/)\.coverage$$|\.db|\.sqlite|(^|/)\.env($$|\.local$$)' && \
 	  (echo "✖ Encontrado algo prohibido"; exit 1) || echo "✔ ZIP limpio"
 
 dist-list:
-	@test -f ../$(ZIP) || (echo "✖ No existe ../$(ZIP). Ejecuta: make dist"; exit 1)
-	@zipinfo -1 ../$(ZIP) | sed -n '1,200p'
+	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@zipinfo -1 $(ZIP_PATH) | sed -n '1,200p'
 
 dist-show-hash:
-	@test -f ../$(ZIP) || (echo "✖ No existe ../$(ZIP). Ejecuta: make dist"; exit 1)
-	@( cd .. && shasum -a 256 $(ZIP) )
+	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@shasum -a 256 $(ZIP_PATH)
 
 dist-verify:
-	@test -f ../SHA256SUMS.txt || (echo "✖ No existe ../SHA256SUMS.txt"; exit 1)
-	@( cd .. && shasum -a 256 -c SHA256SUMS.txt )
+	@test -f $(SHA_FILE) || (echo "✖ No existe $(SHA_FILE)"; exit 1)
+	@shasum -a 256 -c $(SHA_FILE)
 
 dist-clean:
-	@rm -f ../$(ZIP) ../SHA256SUMS.txt
+	@rm -f $(ZIP_PATH) $(SHA_FILE)
 
 # --- Release: copiar artefactos y generar notas ---
 .PHONY: release release-promote
 release: dist dist-check
 	@mkdir -p "$(RELEASE_DIR)"
-	@cp -f ../$(ZIP) ../SHA256SUMS.txt "$(RELEASE_DIR)/"
+	@cp -f "$(ZIP_PATH)" "$(SHA_FILE)" "$(RELEASE_DIR)/"
 	@ts=$$(date +%Y-%m-%d_%H%M%S); \
-	hash=$$(cd .. && shasum -a 256 $(ZIP) | awk '{print $$1}'); \
+	hash=$$(awk '{print $$1}' "$(SHA_FILE)"); \
 	notes="$(RELEASE_DIR)/$(RELEASE_NOTES_PREFIX)_$${ts}.md"; \
 	{ \
 	  echo "# Talento PMV Evaluador — Release $${ts}"; \
 	  echo ""; \
-	  echo "- Artefacto: $(ZIP)"; \
+	  echo "- Artefacto: $$(basename "$(ZIP_PATH)")"; \
 	  echo "- SHA256: $${hash}"; \
 	  echo "- Origen: $(ROOT_DIR)"; \
 	  echo ""; \
 	  echo "## Verificación"; \
-	  echo "\`shasum -a 256 -c SHA256SUMS.txt\` → OK"; \
+	  echo "\`shasum -a 256 -c $$(basename "$(SHA_FILE)")\` → OK"; \
 	} > "$${notes}"; \
 	echo "Release generado en $(RELEASE_DIR) (notas: $${notes})"
 
 release-promote: release
 	@mkdir -p "$(PROMOTE_DIR)"
-	@cp -f ../$(ZIP) ../SHA256SUMS.txt "$(PROMOTE_DIR)/"
+	@cp -f "$(ZIP_PATH)" "$(SHA_FILE)" "$(PROMOTE_DIR)/"
 	@echo "✔ promovido a $(PROMOTE_DIR)"
 
 # --- Version bump & tagging -----------------------------
@@ -306,7 +323,7 @@ tag-release: dist-verify
 	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
 	  echo "✔ tag $$TAG ya existe (ok)"; \
 	else \
-	  ZIP_SHA=$$(awk '{print $$1}' ../SHA256SUMS.txt); \
+	  ZIP_SHA=$$(awk '{print $$1}' "$(SHA_FILE)"); \
 	  git tag -a "$$TAG" -m "Release $(DIST_NAME) (zip SHA256=$$ZIP_SHA)"; \
 	  echo "✔ tag $$TAG creado"; \
 	fi
@@ -316,10 +333,10 @@ tag-release: dist-verify
 qa-all: check-tools dist verify-exclude dist-check dist-verify release
 	@echo ""
 	@echo "———————————————— QA DONE ————————————————"
-	@echo "ZIP          : ../$(ZIP)"
-	@echo "SHA256SUMS   : ../SHA256SUMS.txt"
+	@echo "ZIP          : $(ZIP_PATH)"
+	@echo "SHA256SUMS   : $(SHA_FILE)"
 	@echo "Release dir  : $(RELEASE_DIR)"
-	@echo "Verificación : (cd .. && shasum -a 256 -c SHA256SUMS.txt) → OK"
+	@echo "Verificación : shasum -a 256 -c $(SHA_FILE) → OK"
 	@echo "—————————————————————————————————————————"
 
 qa-dryrun: check-tools
@@ -333,8 +350,8 @@ doctor: check-tools print-vars
 	@echo "✔ Entorno OK"
 
 dist-size:
-	@test -f ../$(ZIP) || (echo "✖ No existe ../$(ZIP). Ejecuta: make dist"; exit 1)
-	@du -h ../$(ZIP)
+	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@du -h $(ZIP_PATH)
 
 clean-logs:
 	@rm -f logs/*.log .play.pid .panel.pid 2>/dev/null || true
@@ -346,12 +363,12 @@ git-push-tags:
 	@echo "✔ commits y tags enviados"
 
 dist-open:
-	@open .. || true
+	@open "$(OUT_DIR)" || true
 
 .PHONY: release-gh
 release-gh: check-tools dist-check dist-verify
 	@scripts/release_gh.sh
-	
+
 .PHONY: doctor-make
 doctor-make:
 	@echo "make path: $$(command -v make)"
