@@ -5,49 +5,80 @@ on:
     tags:
       - 'rel/*'
 
-permissions:
-  contents: write
-
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      CI: true
+
     steps:
-      - name: Checkout (full + exact tag + tags)
+      - name: Checkout (full + tags + exact ref)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}     # checkout EXACTO del tag que dispara
-          fetch-depth: 0             # historia completa
+          fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.ref }}
 
-      - name: Quick debug (Makefile + dist target)
+      - name: Print git context
         run: |
-          pwd
-          ls -la
-          if [ ! -f Makefile ] && [ ! -f makefile ]; then
-            echo "✖ No hay Makefile en $(pwd)"
-            exit 1
-          fi
-          echo "— Cabecera del Makefile —"
-          sed -n '1,200p' Makefile 2>/dev/null || sed -n '1,200p' makefile || true
-          echo "— Buscando diana 'dist' —"
-          if ! grep -nE '^[[:space:]]*(\.PHONY:.*\bdist\b|dist:)' Makefile makefile 2>/dev/null; then
-            echo "✖ La diana 'dist' no existe en este commit/tag"
-            exit 1
-          fi
+          echo "GITHUB_REF=${GITHUB_REF}"
+          echo "GITHUB_SHA=${GITHUB_SHA}"
+          git log -1 --oneline --decorate
+          git describe --tags --always --dirty
 
       - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y zip unzip sqlite3 curl jq lsof
 
-      - name: Build dist (ZIP reproducible + SHA)
+      - name: Ensure exclude.lst (fallback)
+        run: |
+          test -f exclude.lst || cat > exclude.lst <<'EOF'
+          .env
+          *.db
+          *.sqlite
+          backend/staticfiles
+          backend/runtime/sql
+          data/sessions
+          logs
+          .venv
+          __pycache__
+          */__pycache__/*
+          *.pyc
+          *.pyo
+          EOF
+          echo "exclude.lst →"
+          cat exclude.lst
+
+      - name: Make doctor
+        run: |
+          make doctor-make || true
+          make print-vars || true
+
+      - name: Build dist (reproducible)
         run: |
           make dist
           make dist-check
           make dist-verify
 
-      - name: Publish GitHub Release (via Makefile)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          make release-gh CUSTOM_TAG="${GITHUB_REF_NAME}"
+      - name: List artifacts
+        run: ls -la dist || true
+
+      - name: Upload artifact (ZIP + SHA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: talento-dist-${{ github.ref_name }}
+          path: |
+            dist/*.zip
+            dist/*.txt
+            dist/*.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/*.zip
+            dist/*.txt
+            dist/*.sha256

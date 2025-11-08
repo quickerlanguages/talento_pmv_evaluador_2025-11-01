@@ -350,8 +350,8 @@ doctor: check-tools print-vars
 	@echo "✔ Entorno OK"
 
 dist-size:
-	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
-	@du -h $(ZIP_PATH)
+	@test -f "$(ZIP_PATH)" || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@du -h "$(ZIP_PATH)"
 
 clean-logs:
 	@rm -f logs/*.log .play.pid .panel.pid 2>/dev/null || true
