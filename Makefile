@@ -322,3 +322,32 @@ qa-all: check-tools dist verify-exclude dist-check dist-verify release
 qa-dryrun: check-tools
 	@test -f $(EXCLUDE) || (echo "✖ Falta $(EXCLUDE)"; exit 1)
 	@echo "✔ Entorno OK. Listo para 'make qa-all'"
+
+# --- Quality of life ---
+.PHONY: doctor dist-size clean-logs git-push-tags dist-open release-gh doctor-make
+
+doctor: check-tools print-vars
+	@echo "✔ Entorno OK"
+
+dist-size:
+	@test -f "$(ZIP_PATH)" || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
+	@du -h "$(ZIP_PATH)"
+
+clean-logs:
+	@rm -f logs/*.log .play.pid .panel.pid 2>/dev/null || true
+	@echo "✔ logs y pidfiles limpiados"
+
+git-push-tags:
+	@git push || true
+	@git push --tags || true
+	@echo "✔ commits y tags enviados"
+
+dist-open:
+	@open "$(OUT_DIR)" || true
+
+release-gh: check-tools dist-check dist-verify
+	@scripts/release_gh.sh
+
+doctor-make:
+	@echo "make path: $$(command -v make)"
+	@make --version || true
