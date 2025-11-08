@@ -5,6 +5,9 @@ on:
     tags:
       - 'rel/*'
 
+permissions:
+  contents: write  # necesario para crear el Release con softprops
+
 jobs:
   build-and-release:
     runs-on: ubuntu-24.04
@@ -31,21 +34,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zip unzip sqlite3 curl jq lsof
 
+      # SANITIZAR NOMBRE DE TAG PARA ARTIFACTS (evita '/')
+      - name: Sanitize tag for artifact naming
+        run: |
+          SAFE_TAG="${GITHUB_REF_NAME//\//-}"
+          echo "SAFE_TAG=${SAFE_TAG}" >> "$GITHUB_ENV"
+          echo "SAFE_TAG=${SAFE_TAG}"
+
       - name: Ensure exclude.lst (fallback)
         run: |
           test -f exclude.lst || cat > exclude.lst <<'EOF'
-          .env
-          *.db
-          *.sqlite
-          backend/staticfiles
-          backend/runtime/sql
-          data/sessions
-          logs
-          .venv
-          __pycache__
+          */.venv/*
           */__pycache__/*
           *.pyc
           *.pyo
+          *.pid
+          *.coverage
+          *.db
+          *.sqlite
+          .env
+          .env.local
+          backend/staticfiles/*
+          backend/runtime/sql/*
+          data/sessions/*
+          logs/*
+          .git/*
           EOF
           echo "exclude.lst →"
           cat exclude.lst
@@ -64,12 +77,18 @@ jobs:
       - name: List artifacts
         run: ls -la dist || true
 
-      - name: Upload artifact (ZIP + SHA)
+      - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: talento-dist-${{ github.ref_name }}
+          name: talento-dist-${{ env.SAFE_TAG }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Upload artifact (SHA / TXT)
+        uses: actions/upload-artifact@v4
+        with:
+          name: talento-sha-${{ env.SAFE_TAG }}
           path: |
-            dist/*.zip
             dist/*.txt
             dist/*.sha256
           if-no-files-found: error
