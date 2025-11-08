@@ -1,14 +1,16 @@
-# Talento PMV Evaluador — M9 (Flask)  ·  Makefile “premium”
+# Talento PMV Evaluador — M9 (Flask) · Makefile “premium”
 SHELL := /bin/bash
 .ONESHELL:
+.DEFAULT_GOAL := help
 
 ROOT_DIR := $(shell pwd)
 
 # --- Configuración base ---
-PY ?= /opt/homebrew/bin/python3.14
+PY     ?= /opt/homebrew/bin/python3.14
 VENV    := .venv
 PIP     := $(VENV)/bin/pip
 PYBIN   := $(VENV)/bin/python
+SHASUM ?= shasum -a 256
 
 BACKEND_DIR ?= $(ROOT_DIR)/backend
 BACKEND_DB  ?= $(BACKEND_DIR)/talento_READY_2025-09-14.db
@@ -39,15 +41,15 @@ endif
 ZIP_PATH := $(OUT_DIR)/$(ZIP)
 SHA_FILE := $(OUT_DIR)/SHA256SUMS.txt
 
-# Carpetas de salida de “release”
-RELEASE_DIR ?= $(HOME)/Releases/Talento
+# --- Rutas de “release” local ---
+RELEASE_DIR          ?= $(HOME)/Releases/Talento
 RELEASE_NOTES_PREFIX ?= RELEASE_NOTES
-PROMOTE_DIR ?= $(HOME)/Releases/Talento/Final
+PROMOTE_DIR          ?= $(HOME)/Releases/Talento/Final
 
-# --- Herramientas necesarias (se validan en check-tools) ---
+# --- Herramientas necesarias ---
 REQUIRED_TOOLS := zip zipinfo shasum sqlite3 curl jq lsof git
 
-# --- Ayuda general ---
+# --- Ayuda ---
 .PHONY: help
 help:
 	@echo "Targets:"
@@ -62,9 +64,9 @@ help:
 	@echo "  panel-admin-*         → Acciones remotas (ingest/purge/reindex)"
 	@echo "  dev-up|dev-status|dev-logs|dev-down → Supervisor simple"
 	@echo "  verify-exclude        → Comprueba patrones mínimos en exclude.lst"
-	@echo "  pmv-package           → ZIP rápido del PMV (no reproducible, legacy)"
-	@echo "  dist                  → Genera ZIP limpio reproducible + SHA256SUMS.txt"
-	@echo "  dist-check            → Escaneo de archivos prohibidos dentro del ZIP"
+	@echo "  pmv-package           → ZIP rápido del PMV (legacy, no reproducible)"
+	@echo "  dist                  → Genera ZIP reproducible + SHA256SUMS.txt"
+	@echo "  dist-check            → Escanea archivos prohibidos dentro del ZIP"
 	@echo "  dist-list             → Lista el contenido del ZIP"
 	@echo "  dist-show-hash        → Muestra el hash actual del ZIP"
 	@echo "  dist-verify           → Verifica SHA256SUMS.txt"
@@ -76,6 +78,7 @@ help:
 	@echo "  smoke                 → Arranca → healthcheck → para (endpoints /health)"
 	@echo "  qa-dryrun / qa-all    → Pipeline QA (verificaciones + release)"
 	@echo "  release-gh            → Publica en GitHub (usa scripts/release_gh.sh)"
+	@echo "  doctor / doctor-make  → Checks rápidos del entorno / make"
 
 # --- Utilidades ---
 .PHONY: check-tools print-vars clean
@@ -156,7 +159,7 @@ panel-admin-purge:
 panel-admin-reindex:
 	@curl -s -X POST "$(PANEL_URL)/admin/reindex?token=$(PANEL_ADMIN_TOKEN)" | jq .
 
-# --- Verificación de exclude.lst ------------------------
+# --- Verificación de exclude.lst ---
 .PHONY: verify-exclude
 verify-exclude:
 	@need="\\.env \\.db \\*.sqlite backend/staticfiles backend/runtime/sql data/sessions logs"; \
@@ -174,7 +177,7 @@ pmv-package:
 	zip -r "$$OUT" \
 	  backend panel-ui play-ui scripts data docs Makefile VERSION \
 	  -x "*/.venv/*" "*/__pycache__/*" "*.pyc" "*.pyo" "data/exports/*" >/dev/null; \
-	echo "  OK: $$OUT"; shasum -a 256 "$$OUT"
+	echo "  OK: $$OUT"; $(SHASUM) "$$OUT"
 
 # --- Dev supervisor (una sola terminal) ---
 .PHONY: dev-up dev-down dev-status dev-logs
@@ -229,7 +232,7 @@ dev-down:
 	@rm -f .play.pid .panel.pid
 	@echo "OK: servicios detenidos"
 
-# --- Smoke tests / Healthchecks -------------------------
+# --- Smoke tests / Healthchecks ---
 .PHONY: smoke-up smoke-health smoke-down smoke
 HEALTH_RETRIES ?= 30
 HEALTH_SLEEP   ?= 0.5
@@ -260,7 +263,7 @@ dist: check-tools $(EXCLUDE)
 	@mkdir -p $(OUT_DIR)
 	@rm -f $(ZIP_PATH) $(SHA_FILE)
 	@zip -r $(ZIPFLAGS) $(ZIP_PATH) . -x@$(EXCLUDE)
-	@shasum -a 256 $(ZIP_PATH) > $(SHA_FILE)
+	@$(SHASUM) $(ZIP_PATH) > $(SHA_FILE)
 	@echo "Hecho: $(ZIP_PATH) y $(SHA_FILE)"
 
 dist-check:
@@ -274,11 +277,11 @@ dist-list:
 
 dist-show-hash:
 	@test -f $(ZIP_PATH) || (echo "✖ No existe $(ZIP_PATH). Ejecuta: make dist"; exit 1)
-	@shasum -a 256 $(ZIP_PATH)
+	@$(SHASUM) $(ZIP_PATH)
 
 dist-verify:
 	@test -f $(SHA_FILE) || (echo "✖ No existe $(SHA_FILE)"; exit 1)
-	@shasum -a 256 -c $(SHA_FILE)
+	@$(SHASUM) -c $(SHA_FILE)
 
 dist-clean:
 	@rm -f $(ZIP_PATH) $(SHA_FILE)
@@ -299,7 +302,7 @@ release: dist dist-check
 	  echo "- Origen: $(ROOT_DIR)"; \
 	  echo ""; \
 	  echo "## Verificación"; \
-	  echo "\`shasum -a 256 -c $$(basename "$(SHA_FILE)")\` → OK"; \
+	  echo "\`$(SHASUM) -c $$(basename "$(SHA_FILE)")\` → OK"; \
 	} > "$${notes}"; \
 	echo "Release generado en $(RELEASE_DIR) (notas: $${notes})"
 
@@ -308,7 +311,7 @@ release-promote: release
 	@cp -f "$(ZIP_PATH)" "$(SHA_FILE)" "$(PROMOTE_DIR)/"
 	@echo "✔ promovido a $(PROMOTE_DIR)"
 
-# --- Version bump & tagging -----------------------------
+# --- Version bump & tagging ---
 .PHONY: bump-version tag-release
 bump-version:
 	@echo "$(DIST_NAME)" > VERSION
@@ -316,8 +319,7 @@ bump-version:
 	@git commit -m "chore: bump VERSION -> $(DIST_NAME)" || true
 	@echo "✔ VERSION actualizado a $(DIST_NAME)"
 
-# --- Tag idempotente ---------------------------------------------
-.PHONY: tag-release
+# Tag idempotente (usa SHA de ZIP en el mensaje)
 tag-release: dist-verify
 	@TAG="rel/$(DIST_NAME)"; \
 	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
@@ -336,16 +338,15 @@ qa-all: check-tools dist verify-exclude dist-check dist-verify release
 	@echo "ZIP          : $(ZIP_PATH)"
 	@echo "SHA256SUMS   : $(SHA_FILE)"
 	@echo "Release dir  : $(RELEASE_DIR)"
-	@echo "Verificación : shasum -a 256 -c $(SHA_FILE) → OK"
+	@echo "Verificación : $(SHASUM) -c $(SHA_FILE) → OK"
 	@echo "—————————————————————————————————————————"
 
 qa-dryrun: check-tools
 	@test -f $(EXCLUDE) || (echo "✖ Falta $(EXCLUDE)"; exit 1)
 	@echo "✔ Entorno OK. Listo para 'make qa-all'"
 
-# --- Quality of life targets -----------------------------------------------
-.PHONY: doctor dist-size clean-logs git-push-tags dist-open
-
+# --- Quality of life ---
+.PHONY: doctor dist-size clean-logs git-push-tags dist-open release-gh doctor-make
 doctor: check-tools print-vars
 	@echo "✔ Entorno OK"
 
@@ -365,11 +366,9 @@ git-push-tags:
 dist-open:
 	@open "$(OUT_DIR)" || true
 
-.PHONY: release-gh
 release-gh: check-tools dist-check dist-verify
 	@scripts/release_gh.sh
 
-.PHONY: doctor-make
 doctor-make:
 	@echo "make path: $$(command -v make)"
 	@make --version || true
