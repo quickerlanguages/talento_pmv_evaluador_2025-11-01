@@ -1,7 +1,33 @@
+# --- Normalización de fin de línea ---
 * text=auto eol=lf
-*.sh text eol=lf
-Makefile text eol=lf
-*.sql text eol=lf
-*.md  text eol=lf
-*.zip binary
-*.db  binary
+*.sh       text eol=lf
+Makefile   text eol=lf
+*.sql      text eol=lf
+*.md       text eol=lf
+
+# --- Archivos binarios ---
+*.zip      binary
+*.db       binary
+
+# --- No exportar secretos, builds, logs ni sesiones (git archive respetará esto) ---
+.env                export-ignore
+.env.*              export-ignore
+exclude.lst         export-ignore
+data/sessions/**    export-ignore
+logs/**             export-ignore
+out/**              export-ignore
+backend/.coverage   export-ignore
+.play.pid           export-ignore
+.panel.pid          export-ignore
+
+# --- Artefactos temporales y de compilación ---
+backend/staticfiles/**  export-ignore
+backend/runtime/sql/**  export-ignore
+
+# --- Archivos del sistema ---
+.DS_Store           export-ignore
+*.DS_Store          export-ignore
+
+# --- Documentación o scripts internos opcionales ---
+docs/internal/**    export-ignore
+scripts/local/**    export-ignore
