@@ -31,3 +31,5 @@ backend/runtime/sql/**  export-ignore
 # --- Documentación o scripts internos opcionales ---
 docs/internal/**    export-ignore
 scripts/local/**    export-ignore
+
+backend/.coveragerc   export-ignore   # ← NUEVO (además de backend/.coverage)
