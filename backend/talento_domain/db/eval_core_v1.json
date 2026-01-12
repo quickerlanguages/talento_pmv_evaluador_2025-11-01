@@ -1,0 +1,425 @@
+{
+  "schema": "talento.eval_core_pack.v1",
+  "source": "/Users/danielhurtado/Downloads/talento_pmv_evaluador_2025-11-01/backend/talento_domain/db/talento_ssot.db",
+  "normative_version": "EVAL_CORE_v1_0",
+  "generated_at": "2026-01-11T17:56:01.361870+00:00",
+  "items": [
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 50001,
+      "ccp": "ABS",
+      "submod": "matriz_no_verbal",
+      "modalidad": "iconica",
+      "difficulty_level": 2,
+      "layout": "matrix",
+      "timing": {
+        "total_ms": 45000,
+        "interval_ms": 0
+      },
+      "params": {
+        "distractor_similarity": 3.0,
+        "matrix_cols": 3.0,
+        "matrix_rows": 3.0,
+        "n_features": 2.0,
+        "n_options": 6.0,
+        "rule_complexity": 2.0
+      },
+      "payload": {
+        "task": "ABS_MATRIX_RAVEN",
+        "matrix": {
+          "rows": 3,
+          "cols": 3,
+          "missing": "r3c3"
+        },
+        "features": [
+          "shape",
+          "orientation"
+        ],
+        "rule_family": "progression_or_xor",
+        "response": {
+          "type": "multiple_choice",
+          "select_one": 1
+        },
+        "notes": "EVAL núcleo ABS: no verbal, regla inferida, sin feedback correctivo"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 50002,
+      "ccp": "ABS",
+      "submod": "matriz_no_verbal",
+      "modalidad": "iconica",
+      "difficulty_level": 3,
+      "layout": "matrix",
+      "timing": {
+        "total_ms": 45000,
+        "interval_ms": 0
+      },
+      "params": {
+        "distractor_similarity": 4.0,
+        "matrix_cols": 3.0,
+        "matrix_rows": 3.0,
+        "n_features": 3.0,
+        "n_options": 8.0,
+        "rule_complexity": 3.0
+      },
+      "payload": {
+        "task": "ABS_MATRIX_RAVEN",
+        "matrix": {
+          "rows": 3,
+          "cols": 3,
+          "missing": "r3c3"
+        },
+        "features": [
+          "shape",
+          "orientation",
+          "count"
+        ],
+        "rule_family": "two_rule_composition",
+        "response": {
+          "type": "multiple_choice",
+          "select_one": 1
+        },
+        "notes": "EVAL núcleo ABS: complejidad moderada; evita metáfora/creatividad"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 50003,
+      "ccp": "ABS",
+      "submod": "analogia_simple",
+      "modalidad": "simbolica",
+      "difficulty_level": 2,
+      "layout": "analogy",
+      "timing": {
+        "total_ms": 30000,
+        "interval_ms": 0
+      },
+      "params": {
+        "n_options": 4.0,
+        "rule_complexity": 2.0
+      },
+      "payload": {
+        "task": "ABS_ANALOGY_SIMPLE",
+        "domain": "controlled_vocab_v1",
+        "pattern": "A_is_to_B_as_C_is_to_?",
+        "relations": [
+          "part_whole",
+          "category_member",
+          "tool_function"
+        ],
+        "response": {
+          "type": "multiple_choice",
+          "select_one": 1
+        },
+        "notes": "EVAL núcleo ABS: analogía simple con campos controlados (sin juicio abierto)"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 70001,
+      "ccp": "ATN",
+      "submod": "vigilancia",
+      "modalidad": "simbolica",
+      "difficulty_level": 2,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 60000,
+        "interval_ms": 500
+      },
+      "params": {
+        "block_duration_ms": 60000.0,
+        "isi_ms": 500.0,
+        "target_rate": 0.2
+      },
+      "payload": {
+        "task": "ATN_CPT",
+        "stimulus_set": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F"
+        ],
+        "target": "A",
+        "response": "tap_if_target",
+        "notes": "EVAL núcleo: regla fija, estímulos simples, sin feedback correctivo"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 70002,
+      "ccp": "ATN",
+      "submod": "busqueda_visual",
+      "modalidad": "iconica",
+      "difficulty_level": 2,
+      "layout": "grid",
+      "timing": {
+        "total_ms": 30000,
+        "interval_ms": 0
+      },
+      "params": {
+        "grid_cols": 4.0,
+        "grid_rows": 3.0,
+        "n_distractors": 11.0,
+        "similarity_level": 2.0
+      },
+      "payload": {
+        "task": "ATN_VISUAL_SEARCH",
+        "target_shape": "circle",
+        "distractor_shape": "circle",
+        "target_feature": {
+          "color": "red"
+        },
+        "distractor_feature": {
+          "color": "blue"
+        },
+        "response": "tap_target_cell",
+        "notes": "EVAL núcleo: simultáneo, regla fija, sin memoria, sin cambio de regla"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 60001,
+      "ccp": "FM",
+      "submod": "cambio_regla",
+      "modalidad": "simbolica",
+      "difficulty_level": 2,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 60000,
+        "interval_ms": 750
+      },
+      "params": {
+        "cue_ms": 300.0,
+        "n_rules": 2.0,
+        "switch_every_n": 10.0,
+        "switch_mode": "fixed",
+        "unannounced_switch": 0.0
+      },
+      "payload": {
+        "task": "FM_RULE_SWITCH",
+        "stimulus": {
+          "type": "symbol",
+          "set": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ]
+        },
+        "rules": [
+          {
+            "id": "PARITY",
+            "desc": "¿Par? tap=LEFT / ¿Impar? tap=RIGHT"
+          },
+          {
+            "id": "MAGNITUDE",
+            "desc": "¿>5? tap=LEFT / ¿<=5? tap=RIGHT"
+          }
+        ],
+        "response": "tap_left_right",
+        "switch": {
+          "mode": "fixed",
+          "every_n": 10,
+          "cue": "brief"
+        },
+        "notes": "EVAL núcleo FM: mismo estímulo, regla cambia; sin memoria; sin conflicto inhibitorio tipo Stroop"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 60002,
+      "ccp": "FM",
+      "submod": "cambio_regla",
+      "modalidad": "simbolica",
+      "difficulty_level": 3,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 60000,
+        "interval_ms": 650
+      },
+      "params": {
+        "cue_ms": 0.0,
+        "n_rules": 2.0,
+        "switch_every_n": 6.0,
+        "switch_mode": "fixed",
+        "unannounced_switch": 1.0
+      },
+      "payload": {
+        "task": "FM_RULE_SWITCH",
+        "stimulus": {
+          "type": "symbol",
+          "set": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ]
+        },
+        "rules": [
+          {
+            "id": "PARITY",
+            "desc": "¿Par? LEFT / ¿Impar? RIGHT"
+          },
+          {
+            "id": "MAGNITUDE",
+            "desc": "¿>5? LEFT / ¿<=5? RIGHT"
+          }
+        ],
+        "response": "tap_left_right",
+        "switch": {
+          "mode": "fixed",
+          "every_n": 6,
+          "cue": "none"
+        },
+        "notes": "EVAL núcleo FM: cambio no entrenado, sin cue; aumenta coste de set-shifting"
+      },
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 10001,
+      "ccp": "INH",
+      "submod": "motriz",
+      "modalidad": "iconica",
+      "difficulty_level": 3,
+      "layout": "grid",
+      "timing": {
+        "total_ms": 30000,
+        "interval_ms": 1000
+      },
+      "params": {
+        "proporcion_no_go": 0.4,
+        "ventana_stop_ms": 250.0,
+        "ventana_stroop_ms": 300.0
+      },
+      "payload": {},
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 10002,
+      "ccp": "INH",
+      "submod": "motriz",
+      "modalidad": "iconica",
+      "difficulty_level": 3,
+      "layout": "grid",
+      "timing": {
+        "total_ms": 32000,
+        "interval_ms": 900
+      },
+      "params": {
+        "proporcion_no_go": 0.35,
+        "ventana_stop_ms": 220.0,
+        "ventana_stroop_ms": 280.0
+      },
+      "payload": {},
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 30001,
+      "ccp": "MCP",
+      "submod": "visual",
+      "modalidad": "simbolica",
+      "difficulty_level": 2,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 30000,
+        "interval_ms": 1200
+      },
+      "params": {
+        "longitud_lista": 5.0
+      },
+      "payload": {},
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 20001,
+      "ccp": "MDT",
+      "submod": "visual",
+      "modalidad": "simbolica",
+      "difficulty_level": 3,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 45000,
+        "interval_ms": 1500
+      },
+      "params": {
+        "carga_operaciones": 1.0,
+        "n_back": 2.0
+      },
+      "payload": {},
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 20002,
+      "ccp": "MDT",
+      "submod": "visual",
+      "modalidad": "simbolica",
+      "difficulty_level": 3,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 50000,
+        "interval_ms": 1500
+      },
+      "params": {
+        "carga_operaciones": 2.0,
+        "n_back": 3.0
+      },
+      "payload": {},
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    },
+    {
+      "schema": "talento.eval_item.v1",
+      "item_id": 40001,
+      "ccp": "VPM",
+      "submod": "visual",
+      "modalidad": "simbolica",
+      "difficulty_level": 2,
+      "layout": "seq",
+      "timing": {
+        "total_ms": 18000,
+        "interval_ms": 700
+      },
+      "params": {
+        "ventana_presentacion_ms": 350.0
+      },
+      "payload": {},
+      "introduced_in_version": null,
+      "deprecated_in_version": null
+    }
+  ]
+}
