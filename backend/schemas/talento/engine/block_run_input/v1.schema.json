@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.talento.app/talento/engine/v1/block_run_input.schema.json",
+  "title": "talento.engine.block_run_input.v1",
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "schema",
+    "run_id",
+    "normative_version",
+    "ccp",
+    "block_code",
+    "seed",
+    "device_profile",
+    "items"
+  ],
+
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "talento.engine.block_run_input.v1"
+    },
+
+    "run_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+
+    "normative_version": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]+_v[0-9]+_[0-9]+$",
+      "minLength": 8,
+      "maxLength": 64
+    },
+
+    "ccp": {
+      "type": "string",
+      "enum": ["VPM", "MCP", "MDT", "INH", "FM", "ATN", "ABS"]
+    },
+
+    "block_code": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z0-9_]+$"
+    },
+
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+
+    "started_at_utc": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Optional client-side timestamp when block execution started."
+    },
+
+    "device_profile": {
+      "$ref": "https://schemas.talento.app/talento/engine/v1/device_profile.schema.json"
+    },
+
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "$ref": "https://schemas.talento.app/talento/engine/v1/item_run_input.schema.json"
+      }
+    }
+  }
+}

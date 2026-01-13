@@ -1,0 +1,52 @@
+{
+  "schema": "talento.engine.block_run_output.v1",
+  "run_id": "test-run-001",
+  "normative_version": "EVAL_v1_1",
+  "ccp": "VPM",
+  "block_code": "VPM_VIS_ICON",
+  "started_at_utc": "2026-01-13T15:45:00Z",
+  "finished_at_utc": "2026-01-13T15:45:10Z",
+  "status": "completed",
+  "answers": [
+    {
+      "schema": "talento.engine.answer.v1",
+      "item_id": 1,
+      "presented_at_utc": "2026-01-13T15:45:01Z",
+      "answered_at_utc": "2026-01-13T15:45:02Z",
+      "rt_ms": 850,
+      "response": { "choice": "A" },
+      "flags": {
+        "is_correct": true,
+        "is_timeout": false,
+        "is_early_abort": false
+      }
+    },
+    {
+      "schema": "talento.engine.answer.v1",
+      "item_id": 2,
+      "presented_at_utc": "2026-01-13T15:45:03Z",
+      "answered_at_utc": null,
+      "rt_ms": null,
+      "response": null,
+      "flags": {
+        "is_correct": false,
+        "is_timeout": false,
+        "is_early_abort": false
+      }
+    }
+  ],
+  "metrics": {
+    "schema": "talento.engine.metrics.v1",
+    "n_presented": 2,
+    "n_answered": 1,
+    "accuracy": 1.0,
+    "median_rt_ms": 850,
+    "p90_rt_ms": 850
+  },
+  "integrity": {
+    "schema": "talento.engine.integrity.v1",
+    "seed": 123456,
+    "device_profile_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "pack_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

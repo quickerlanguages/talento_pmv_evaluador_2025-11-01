@@ -1,0 +1,19 @@
+{
+  "schema": "talento.engine.block_run_input.v1",
+  "run_id": "test-run-001",
+  "normative_version": "EVAL_v1_1",
+  "ccp": "VPM",
+  "block_code": "VPM_VIS_ICON",
+  "seed": 123456,
+  "device_profile": {
+    "schema": "talento.engine.device_profile.v1",
+    "device_profile_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "items": [
+    {
+      "schema": "talento.engine.item_run_input.v1",
+      "item_id": 1,
+      "params": {}
+    }
+  ]
+}

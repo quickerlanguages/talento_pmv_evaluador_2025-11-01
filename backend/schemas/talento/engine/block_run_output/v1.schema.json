@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.talento.app/talento/engine/v1/block_run_output.schema.json",
+  "title": "talento.engine.block_run_output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "normative_version",
+    "ccp",
+    "block_code",
+    "started_at_utc",
+    "finished_at_utc",
+    "status",
+    "answers",
+    "metrics",
+    "integrity"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "talento.engine.block_run_output.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "normative_version": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]+_v[0-9]+_[0-9]+$",
+      "minLength": 8,
+      "maxLength": 64
+    },
+    "ccp": {
+      "type": "string",
+      "enum": ["VPM", "MCP", "MDT", "INH", "FM", "ATN", "ABS"]
+    },
+    "block_code": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z0-9_]+$"
+    },
+    "started_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "aborted", "timeout", "invalid"]
+    },
+
+    "answers": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "item_id",
+          "presented_at_utc",
+          "answered_at_utc",
+          "rt_ms",
+          "response",
+          "flags"
+        ],
+        "properties": {
+          "schema": {
+            "type": "string",
+            "const": "talento.engine.answer.v1"
+          },
+          "item_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "presented_at_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+
+          "answered_at_utc": {
+            "description": "Null means presented but no explicit answer captured (omission).",
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "rt_ms": {
+            "description": "Null means no RT available (e.g., omission).",
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 600000
+          },
+
+          "response": {
+            "description": "Block-specific response payload. Null means omission/no response payload.",
+            "type": ["object", "null"],
+            "additionalProperties": true
+          },
+
+          "flags": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["is_correct", "is_timeout", "is_early_abort"],
+            "properties": {
+              "is_correct": { "type": "boolean" },
+              "is_timeout": { "type": "boolean" },
+              "is_early_abort": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "n_presented", "n_answered"],
+      "properties": {
+        "schema": { "type": "string", "const": "talento.engine.metrics.v1" },
+        "n_presented": { "type": "integer", "minimum": 0, "maximum": 200 },
+        "n_answered": { "type": "integer", "minimum": 0, "maximum": 200 },
+        "accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "median_rt_ms": { "type": "integer", "minimum": 0, "maximum": 600000 },
+        "p90_rt_ms": { "type": "integer", "minimum": 0, "maximum": 600000 }
+      }
+    },
+
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "seed", "device_profile_hash", "pack_hash"],
+      "properties": {
+        "schema": { "type": "string", "const": "talento.engine.integrity.v1" },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "device_profile_hash": {
+          "type": "string",
+          "description": "sha256:<hex> recommended.",
+          "minLength": 16,
+          "maxLength": 128
+        },
+        "pack_hash": {
+          "type": "string",
+          "description": "sha256:<hex> of eval_core_vX_Y.json used to generate/run this block.",
+          "minLength": 16,
+          "maxLength": 128
+        }
+      }
+    }
+  }
+}
