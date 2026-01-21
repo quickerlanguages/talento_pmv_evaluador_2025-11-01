@@ -7,9 +7,13 @@ data/exports/
 *.zip.sha256
 *.asc
 .env
+.env.local
 .DS_Store
 .play.pid
 .panel.pid
+
+# Databases
 backend/*.db
 backend/*.db-*
-.env.local
+*.sqlite3
+*.sqlite3-*
