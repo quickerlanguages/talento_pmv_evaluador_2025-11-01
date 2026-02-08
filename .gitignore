@@ -18,6 +18,9 @@ backend/*.db-*
 *.sqlite3
 *.sqlite3-*
 
+readme_milestones.md
+tools/
+
 #Flutter...
 # ... Local outputs / artifacts
 data/
