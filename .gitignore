@@ -17,3 +17,15 @@ backend/*.db
 backend/*.db-*
 *.sqlite3
 *.sqlite3-*
+
+#Flutter...
+# ... Local outputs / artifacts
+data/
+database/
+out/
+out_release/
+last_ci.log
+
+# ... Local sqlite dbs / backups
+*.db
+*.db.bak.*
